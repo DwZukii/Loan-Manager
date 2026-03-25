@@ -6,13 +6,51 @@ import * as XLSX from 'xlsx'
 export default function App() {
   const [userRole, setUserRole] = useState(null)
   const [userEmail, setUserEmail] = useState(null)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // --- NEW: Persistent Login Checker ---
+  useEffect(() => {
+    const checkSession = async () => {
+      // 1. Check if Supabase has a saved session cookie
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session) {
+        // 2. If they do, fetch their role so we know which dashboard to load
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('email', session.user.email)
+          .single()
+
+        if (profileData) {
+          setUserRole(profileData.role)
+          setUserEmail(session.user.email)
+        }
+      }
+      setIsCheckingAuth(false)
+    }
+    
+    checkSession()
+  }, [])
+
+  // --- NEW: Handle completely signing out and wiping the cookie ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUserRole(null)
+    setUserEmail(null)
+  }
+
+  // Show a blank/loading screen for a split second while we check the cookie
+  if (isCheckingAuth) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>
+  }
 
   if (userRole === 'super_admin' || userRole === 'manager') {
-    return <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={() => setUserRole(null)} />
+    return <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
   }
   
   if (userRole === 'agent') {
-    return <AgentDashboard userEmail={userEmail} onLogout={() => setUserRole(null)} />
+    return <AgentDashboard userEmail={userEmail} onLogout={handleLogout} />
   }
 
   return (
@@ -24,13 +62,14 @@ export default function App() {
 }
 
 // ==========================================
-// REDESIGNED LOGIN COMPONENT
+// LOGIN COMPONENT
 // ==========================================
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false) // <-- NEW STATE
 
   const handleSignIn = async () => {
     setIsLoading(true)
@@ -66,31 +105,26 @@ function Login({ onLogin }) {
   return (
     <div className="min-h-screen flex font-sans text-slate-900 bg-slate-50">
       
-      {/* 1. BRANDING PANEL (Hidden on mobile) */}
       <div className="hidden md:flex md:w-1/2 bg-indigo-950 justify-center items-center p-12 relative overflow-hidden">
-        {/* Subtle background glow effect for premium feel */}
         <div className="absolute top-0 left-0 w-full h-full opacity-30 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent"></div>
         <div className="absolute bottom-0 right-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-500 via-transparent to-transparent"></div>
 
         <div className="relative z-10 text-center max-w-lg">
           <div className="mb-8 inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-white/5 border border-white/10 shadow-xl backdrop-blur-sm">
-             {/* Dynamic Dollar Icon */}
              <svg className="w-12 h-12 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
              </svg>
           </div>
-          <h1 className="text-5xl font-extrabold text-white tracking-tighter mb-4 leading-tight">Tele Manager</h1>
+          <h1 className="text-5xl font-extrabold text-white tracking-tighter mb-4 leading-tight">Loan Manager Pro</h1>
           <p className="text-xl text-indigo-200 font-medium">
             Streamline your lending pipeline, manage team assignments, and track real-time performance in one secure workspace.
           </p>
         </div>
       </div>
 
-      {/* 2. LOGIN FORM SIDE (Mobile First) */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-16 relative">
         <div className="w-full max-w-md">
           
-          {/* Mobile Header (Hidden on Desktop) */}
           <div className="md:hidden text-center mb-10">
              <div className="mx-auto inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-indigo-100 border border-indigo-200 mb-4 shadow-sm">
                 <svg className="w-10 h-10 text-indigo-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -144,13 +178,26 @@ function Login({ onLogin }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
+                  {/* --- NEW: Dynamic Input Type --- */}
                   <input 
-                    type="password" 
+                    type={showPassword ? "text" : "password"} 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-sm" 
+                    className="w-full pl-11 pr-12 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all text-sm" 
                     placeholder="••••••••" 
                   />
+                  {/* --- NEW: Eye Icon Button --- */}
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -180,8 +227,6 @@ function Login({ onLogin }) {
     </div>
   )
 }
-
-// ... the rest of the file (AdminDashboard and AgentDashboard) remain unchanged ...
 
 // ==========================================
 // ADMIN / MANAGER DASHBOARD
@@ -218,8 +263,8 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [newAccManager, setNewAccManager] = useState('')
   const [isCreatingAcc, setIsCreatingAcc] = useState(false)
   const [accCreateStatus, setAccCreateStatus] = useState('')
+  const [showNewAccPassword, setShowNewAccPassword] = useState(false) // <-- NEW STATE
 
-  // --- NEW STATES FOR REFINEMENTS ---
   const [isNotifPanelOpen, setIsNotifPanelOpen] = useState(false)
   const [profileFilter, setProfileFilter] = useState('All')
   const [profilePage, setProfilePage] = useState(1)
@@ -455,14 +500,10 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
     }
   }
 
-  // ==========================================
-  // VIEW: INDIVIDUAL AGENT PROFILE
-  // ==========================================
   if (selectedAgentProfile) {
     const p = selectedAgentProfile
     const percentDone = Math.round((p.called / p.total) * 100) || 0
 
-    // Filter & Pagination Logic for Profile
     const filteredProfileLeads = agentProfileLeads.filter(lead => profileFilter === 'All' ? true : lead.status === profileFilter)
     const indexOfLastProfileLead = profilePage * profileLeadsPerPage
     const indexOfFirstProfileLead = indexOfLastProfileLead - profileLeadsPerPage
@@ -556,13 +597,9 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
     )
   }
 
-  // ==========================================
-  // VIEW: MAIN DASHBOARD
-  // ==========================================
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       
-      {/* --- SLIDE-OUT NOTIFICATION PANEL --- */}
       {isNotifPanelOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex justify-end transition-opacity">
           <div className="w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto p-6 transform transition-transform">
@@ -594,8 +631,6 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
       )}
 
       <div className="max-w-6xl mx-auto">
-        
-        {/* HEADER WITH NOTIFICATION BELL */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{userRole === 'super_admin' ? "Super Admin Control" : "Manager Dashboard"}</h1>
@@ -619,7 +654,6 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        {/* 1. PERFORMANCE TRACKER MOVED TO TOP */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 relative z-0">
           <h2 className="text-xl font-bold text-gray-800 mb-4">{userRole === 'super_admin' ? "Global Agent Performance Tracker" : "My Team Performance Tracker"}</h2>
           {agentStats.length === 0 ? (
@@ -674,7 +708,6 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
           )}
         </div>
 
-        {/* 2. POOL & DISTRIBUTE BELOW TRACKER */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 relative z-0">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
             <div>
@@ -747,7 +780,6 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        {/* 3. SEARCH DATABASE BELOW DISTRIBUTE */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 relative z-10">
           <label className="block text-sm font-bold text-gray-700 mb-2">🔍 Search Database</label>
           <input type="text" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder="Type at least 4 digits of a phone number..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
@@ -771,7 +803,6 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
           )}
         </div>
 
-        {/* 4. ACCOUNT CREATION AT THE BOTTOM */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 relative z-0">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
             {userRole === 'super_admin' ? "🏢 Company Structure & Account Creation" : "👤 Team Management & Account Creation"}
@@ -782,7 +813,28 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
               <h3 className="font-bold text-gray-700 mb-3 border-b border-gray-200 pb-2">Create New Account</h3>
               <div className="space-y-3">
                 <input type="email" placeholder="New User Email" value={newAccEmail} onChange={(e) => setNewAccEmail(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
-                <input type="password" placeholder="Password (min 6 chars)" value={newAccPassword} onChange={(e) => setNewAccPassword(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+                
+                {/* --- NEW: Eye icon on admin account creation --- */}
+                <div className="relative">
+                  <input 
+                    type={showNewAccPassword ? "text" : "password"} 
+                    placeholder="Password (min 6 chars)" 
+                    value={newAccPassword} 
+                    onChange={(e) => setNewAccPassword(e.target.value)} 
+                    className="w-full p-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowNewAccPassword(!showNewAccPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                  >
+                    {showNewAccPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    )}
+                  </button>
+                </div>
                 
                 {userRole === 'super_admin' && (
                   <>
@@ -865,20 +917,44 @@ function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
+        {/* --- RESTORED: Recent Team Activity & Notes Section --- */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative z-0">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Team Activity & Notes</h2>
+          {activeLeads.length === 0 ? (
+             <p className="text-gray-500">No active notes or files to review.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeLeads.map(lead => (
+                <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group">
+                  <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white border border-gray-200 shadow-sm transition opacity-0 group-hover:opacity-100" title="Dismiss Notification">✕ Dismiss</button>
+                  <div className="flex justify-between items-start mb-2 pr-20">
+                    <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
+                    <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-yellow-100 text-yellow-700'}`}>{lead.status}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">Agent: {lead.assigned_to}</p>
+                  
+                  {lead.agent_notes ? <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div> : <p className="text-xs text-gray-400 italic mb-3">No notes written.</p>}
+                  {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-blue-600 hover:text-blue-800 underline">📎 View Document</a>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* --- End Restored Section --- */}
+
       </div>
     </div>
   )
 }
 
 // ==========================================
-// AGENT DASHBOARD
+// AGENT DASHBOARD 
 // ==========================================
 function AgentDashboard({ userEmail, onLogout }) {
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   
-  // --- NEW: Agent Filter State ---
   const [agentFilter, setAgentFilter] = useState('All')
   const [currentPage, setCurrentPage] = useState(1)
   const leadsPerPage = 10
@@ -975,7 +1051,7 @@ function AgentDashboard({ userEmail, onLogout }) {
   const callsMade = totalLeads - pendingCount
   const progressPercent = Math.round((callsMade / totalLeads) * 100) || 0
 
-  if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center text-gray-500 font-medium"><p>Loading your leads...</p></div>
+  if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center text-gray-500 font-medium flex items-center justify-center"><p>Loading your leads...</p></div>
 
   if (selectedLead) {
     const currentLead = leads.find(l => l.id === selectedLead.id)
@@ -1016,7 +1092,6 @@ function AgentDashboard({ userEmail, onLogout }) {
     )
   }
 
-  // --- UPDATED: Agent Filtering Logic ---
   const filteredLeads = leads.filter(lead => agentFilter === 'All' ? true : lead.status === agentFilter)
   const indexOfLastLead = currentPage * leadsPerPage
   const indexOfFirstLead = indexOfLastLead - leadsPerPage
@@ -1036,7 +1111,6 @@ function AgentDashboard({ userEmail, onLogout }) {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-2xl mx-auto">
         
-        {/* --- UPDATED HEADER WITH FILTER --- */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">My Leads</h1>
           <div className="flex items-center gap-3">
@@ -1051,7 +1125,7 @@ function AgentDashboard({ userEmail, onLogout }) {
               <option value="Thinking">Thinking</option>
               <option value="Rejected">Rejected</option>
             </select>
-            <button onClick={onLogout} className="bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-100 transition">Sign Out</button>
+            <button onClick={onLogout} className="bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-100 transition shadow-sm">Sign Out</button>
           </div>
         </div>
 
@@ -1112,5 +1186,4 @@ function AgentDashboard({ userEmail, onLogout }) {
       </div>
     </div>
   )
-} 
-// forcing vercel update
+}
