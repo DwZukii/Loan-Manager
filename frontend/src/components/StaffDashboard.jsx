@@ -25,13 +25,10 @@ export default function StaffDashboard({ userEmail, onLogout }) {
 
 Minta maaf ganggu masa tn/pn 🙏🏻,
 
-Promosi khas kepada staff *KAKITANGAN KERAJAAN PERSEKUTUAN & BADAN BERKANUN SAHAJA*
-
-*Pembiayaan Peribadi Islamik dengan Bank atau Koperasi.*
+*Pembiayaan Peribadi Islamik dengan Bank .*
 
 Kelebihan *PROMOSI* :-
 
-*✅ Potongan melalui Biro Angkasa*
 *✅ Ada masalah Ctos/Ccris/SAA/Blacklist pun boleh apply*
 *✅ ADA BLACKLIST BOLEH MEMOHON*
 *✅ Dokumen mudah dan ringkas*
@@ -280,10 +277,12 @@ Balas *“YA”* untuk semakan 🆓
                 </select>
               </div>
               
-              <div className="flex gap-2 mb-2">
-                <a href={`tel:${currentLead.phone_number}`} className="flex-1 bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
-                <a href={`sms:${currentLead.phone_number}`} className="flex-1 bg-gray-800 text-white text-center py-3 rounded-xl font-bold hover:bg-gray-900 shadow-sm transition">SMS</a>
-                <button onClick={() => setShowWaMenu(!showWaMenu)} className="flex-1 bg-green-500 text-white text-center py-3 rounded-xl font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
+              <div className="flex flex-col gap-2 mb-2">
+                <div className="flex gap-2">
+                  <a href={`tel:${currentLead.phone_number}`} className="flex-1 bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
+                  <a href={`sms:${currentLead.phone_number}`} className="flex-1 bg-gray-800 text-white text-center py-3 rounded-xl font-bold hover:bg-gray-900 shadow-sm transition">SMS</a>
+                </div>
+                <button onClick={() => setShowWaMenu(!showWaMenu)} className="w-full bg-green-500 text-white text-center py-3 rounded-xl font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
                   WhatsApp <svg className={`w-4 h-4 transition-transform ${showWaMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
               </div>

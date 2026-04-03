@@ -74,13 +74,37 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     }
 
     const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(100) 
+    let workedOnLeads = [];
     if (activeData) {
-      const workedOnLeads = activeData.filter(lead => 
+      workedOnLeads = activeData.filter(lead => 
         teamEmails.includes(lead.assigned_to) && 
         (lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null)
       )
-      setActiveLeads(workedOnLeads.slice(0, 50)) 
     }
+
+    const { data: adminLeadsData } = await supabase.from('leads')
+      .select('id, lead_set')
+      .eq('pool_owner', userEmail)
+      .eq('assigned_to', 'unassigned')
+      .eq('is_reviewed', false);
+    
+    let adminNotifs = [];
+    if (adminLeadsData && adminLeadsData.length > 0) {
+      const sets = [...new Set(adminLeadsData.map(l => l.lead_set))];
+      sets.forEach(setName => {
+        const ids = adminLeadsData.filter(l => l.lead_set === setName).map(l => l.id);
+        adminNotifs.push({
+          id: `admin_drop_${setName}`,
+          type: 'admin_drop',
+          ids: ids,
+          message: `Admin transferred ${ids.length} new leads to your ${setName} pool.`,
+          lead_set: setName,
+          status: 'New Allocation'
+        });
+      });
+    }
+
+    setActiveLeads([...adminNotifs, ...workedOnLeads.slice(0, 50)]) 
   }
 
   const handleCreateAccount = async () => { 
@@ -123,9 +147,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             const parts = cellStr.split(/[,/\n]/);
             parts.forEach(part => {
               let clean = part.replace(/\D/g, '');
-              if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean;
-              else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean;
-              if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean);
+              if (clean.startsWith('1')) clean = '60' + clean;
+              else if (clean.startsWith('0')) clean = '6' + clean;
+              
+              if (clean.startsWith('601')) extracted.push(clean);
             });
           });
         });
@@ -146,7 +171,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       status: 'Pending', 
       agent_notes: '', 
       document_url: null, 
-      is_reviewed: false, 
+      is_reviewed: true, 
       lead_set: uploadSet,
       pool_owner: userEmail 
     }));
@@ -185,6 +210,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     }
     setActiveLeads(activeLeads.filter(lead => lead.id !== id));
     await supabase.from('leads').update({ is_reviewed: true }).eq('id', id);
+  }
+
+  const handleDismissAdminDrop = async (notifId, ids) => {
+    setActiveLeads(activeLeads.filter(lead => lead.id !== notifId));
+    await supabase.from('leads').update({ is_reviewed: true }).in('id', ids);
   }
 
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
@@ -300,18 +330,32 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <h2 className="text-xl font-bold text-gray-800 mb-4">🔔 My Team Activity & Notes</h2>
         {activeLeads.length === 0 ? <p className="text-gray-500">No active notes or files to review.</p> : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
-            {activeLeads.map(lead => (
-              <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group hover:bg-white transition-colors">
-                <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100">✕ Dismiss</button>
-                <div className="flex justify-between items-start mb-2 pr-20">
-                  <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-yellow-100 text-yellow-700'}`}>{lead.status}</span>
+            {activeLeads.map(lead => {
+              if (lead.type === 'admin_drop') {
+                return (
+                  <div key={lead.id} className="border border-indigo-200 rounded-xl p-4 bg-indigo-50 relative group hover:bg-indigo-100 transition-colors">
+                    <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-3 right-3 text-indigo-400 hover:text-indigo-700 font-bold px-2 py-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100">✕ Dismiss</button>
+                    <div className="flex justify-between items-start mb-2 pr-20">
+                      <h3 className="font-bold text-indigo-900">System Alert</h3>
+                      <span className="text-xs px-2 py-1 rounded font-bold bg-indigo-200 text-indigo-800">{lead.status}</span>
+                    </div>
+                    <p className="text-sm text-indigo-700 font-bold">{lead.message}</p>
+                  </div>
+                )
+              }
+              return (
+                <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group hover:bg-white transition-colors">
+                  <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100">✕ Dismiss</button>
+                  <div className="flex justify-between items-start mb-2 pr-20">
+                    <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
+                    <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-yellow-100 text-yellow-700'}`}>{lead.status}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3 font-medium">Staff: {lead.assigned_to} • <span className="font-bold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
+                  {lead.agent_notes && <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div>}
+                  {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold underline">📎 View Document</a>}
                 </div>
-                <p className="text-xs text-gray-500 mb-3 font-medium">Staff: {lead.assigned_to} • <span className="font-bold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                {lead.agent_notes && <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div>}
-                {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold underline">📎 View Document</a>}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -509,18 +553,34 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                <p className="text-gray-500 text-center py-10">You're all caught up! No active notes or files to review.</p>
             ) : (
               <div className="space-y-4">
-                {activeLeads.map(lead => (
-                  <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group">
-                    <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white border border-gray-200 shadow-sm transition opacity-0 group-hover:opacity-100" title="Dismiss Notification">✕ Dismiss</button>
-                    <div className="flex justify-between items-start mb-2 pr-20">
-                      <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
-                      <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-blue-100 text-blue-800'}`}>{lead.status}</span>
+                {activeLeads.map(lead => {
+                  if (lead.type === 'admin_drop') {
+                    return (
+                      <div key={lead.id} className="border border-indigo-200 rounded-xl p-4 bg-indigo-50 relative group">
+                        <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-3 right-3 text-indigo-400 hover:text-indigo-700 font-bold px-2 py-1 rounded bg-white border border-indigo-200 shadow-sm transition opacity-0 group-hover:opacity-100" title="Dismiss Notification">✕ Dismiss</button>
+                        <div className="flex justify-between items-start mb-2 pr-20">
+                          <h3 className="font-bold text-indigo-900">System Alert</h3>
+                          <span className="text-xs px-2 py-1 rounded font-bold bg-indigo-200 text-indigo-800">{lead.status}</span>
+                        </div>
+                        <p className="text-sm font-bold text-indigo-700 mb-1">{lead.message}</p>
+                        <p className="text-xs text-indigo-500 font-medium">Ready to distribute from Command Center.</p>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group">
+                      <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white border border-gray-200 shadow-sm transition opacity-0 group-hover:opacity-100" title="Dismiss Notification">✕ Dismiss</button>
+                      <div className="flex justify-between items-start mb-2 pr-20">
+                        <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
+                        <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-blue-100 text-blue-800'}`}>{lead.status}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3 font-medium">Staff: {lead.assigned_to} • <span className="font-bold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
+                      {lead.agent_notes ? <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div> : <p className="text-xs text-gray-400 italic mb-3">No notes written.</p>}
+                      {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-blue-600 hover:text-blue-800 underline">📎 View Document</a>}
                     </div>
-                    <p className="text-xs text-gray-500 mb-3 font-medium">Staff: {lead.assigned_to} • <span className="font-bold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                    {lead.agent_notes ? <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div> : <p className="text-xs text-gray-400 italic mb-3">No notes written.</p>}
-                    {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold text-blue-600 hover:text-blue-800 underline">📎 View Document</a>}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -545,6 +605,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             </button>
             <button onClick={onLogout} className="bg-white border border-gray-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50 transition shadow-sm">Sign Out</button>
           </div>
+        </div>
+        <div className="md:hidden flex px-4 pb-2 space-x-2 overflow-x-auto bg-white border-t border-gray-100 pt-2">
+          <button onClick={() => setActiveTab('overview')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Command Center</button>
+          <button onClick={() => setActiveTab('data')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'data' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>My Team Matrix</button>
+          <button onClick={() => setActiveTab('directory')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'directory' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Directory</button>
         </div>
       </nav>
 

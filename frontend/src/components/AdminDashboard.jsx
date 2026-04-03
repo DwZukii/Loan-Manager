@@ -13,6 +13,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   
   const [unassignedCounts, setUnassignedCounts] = useState({ 'Set A': 0, 'Set B': 0, 'Set C': 0 }) 
   const [agentStats, setAgentStats] = useState([])
+  const [managerStats, setManagerStats] = useState([])
+  
   const [assignEmail, setAssignEmail] = useState('')
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
@@ -65,35 +67,54 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (statsData) {
       let counts = { 'Set A': 0, 'Set B': 0, 'Set C': 0, 'External / Manual': 0 }
       const statsMap = {}
+      const mStatsMap = {}
+
+      if (profilesData) {
+        profilesData.filter(p => p.role === 'agent').forEach(agent => {
+          statsMap[agent.email] = { 
+            email: agent.email, 
+            manager: agent.manager_email || 'Unassigned', 
+            total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 
+          }
+        })
+        
+        profilesData.filter(p => p.role === 'manager').forEach(manager => {
+           mStatsMap[manager.email] = { email: manager.email, unassigned_pool: 0, total_agents: 0 }
+        })
+        
+        profilesData.filter(p => p.role === 'agent').forEach(agent => {
+           if (agent.manager_email && mStatsMap[agent.manager_email]) {
+               mStatsMap[agent.manager_email].total_agents++;
+           }
+        })
+      }
 
       statsData.forEach(lead => {
         if (lead.assigned_to === 'unassigned') { 
           if (lead.pool_owner === userEmail) {
             const setKey = lead.lead_set || 'Set A';
             if (counts[setKey] !== undefined) counts[setKey]++;
+          } else if (mStatsMap[lead.pool_owner]) {
+            mStatsMap[lead.pool_owner].unassigned_pool++;
           }
         } 
         else if (teamEmails.includes(lead.assigned_to)) {
           const email = lead.assigned_to
-          if (!statsMap[email]) {
-            const agentProfile = profilesData?.find(p => p.email === email)
-            statsMap[email] = { 
-              email, 
-              manager: agentProfile?.manager_email || 'Unassigned', 
-              total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 
-            }
+          if (statsMap[email]) {
+            statsMap[email].total++
+            if (lead.status === 'Pending') statsMap[email].pending++
+            if (lead.status === 'Accepted') statsMap[email].accepted++
+            if (lead.status === 'Rejected') statsMap[email].rejected++
+            if (lead.status === 'Thinking') statsMap[email].thinking++
+            if (lead.status === 'Called (No Answer)') statsMap[email].called++
+            if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
           }
-          statsMap[email].total++
-          if (lead.status === 'Pending') statsMap[email].pending++
-          if (lead.status === 'Accepted') statsMap[email].accepted++
-          if (lead.status === 'Rejected') statsMap[email].rejected++
-          if (lead.status === 'Thinking') statsMap[email].thinking++
-          if (lead.status === 'Called (No Answer)') statsMap[email].called++
-          if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
         }
       })
+      
       setUnassignedCounts(counts)
       setAgentStats(Object.values(statsMap))
+      setManagerStats(Object.values(mStatsMap))
     }
 
     const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(200) 
@@ -145,9 +166,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             const parts = cellStr.split(/[,/\n]/);
             parts.forEach(part => {
               let clean = part.replace(/\D/g, '');
-              if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean;
-              else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean;
-              if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean);
+              if (clean.startsWith('1')) clean = '60' + clean;
+              else if (clean.startsWith('0')) clean = '6' + clean;
+              
+              if (clean.startsWith('601')) extracted.push(clean);
             });
           });
         });
@@ -163,7 +185,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const handleUploadToDatabase = async () => {
     if (validNumbers.length === 0) return; setUploadStatus(`Pushing ${validNumbers.length} numbers...`);
     const leadsToInsert = validNumbers.map(phone => ({ 
-      phone_number: phone, assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null, is_reviewed: false, lead_set: uploadSet, pool_owner: userEmail 
+      phone_number: phone, assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null, is_reviewed: true, lead_set: uploadSet, pool_owner: userEmail 
     }));
     const { error } = await supabase.from('leads').insert(leadsToInsert)
     if (!error) { setUploadStatus(`Success! Added numbers to ${uploadSet}.`); setValidNumbers([]); document.getElementById('file-upload-input').value = ''; fetchAdminData(); }
@@ -192,7 +214,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     setTransferStatus(`Transferring leads...`)
     const { data: leadsToTransfer } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet).limit(finalAmount)
     const ids = leadsToTransfer.map(lead => lead.id)
-    const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail }).in('id', ids)
+    
+    // Explicitly setting is_reviewed to false here triggers the Manager's "System Alert" notification
+    const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, is_reviewed: false }).in('id', ids)
+    
     if (!error) { 
       setTransferStatus(`Transferred ${finalAmount} leads.`); 
       setTransferAmount('50'); setTransferManagerEmail(''); fetchAdminData() 
@@ -273,7 +298,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                {/* HYBRID DATALIST IMPLEMENTED */}
                 <input type="number" list="assign-amounts" value={assignAmount} onChange={(e) => setAssignAmount(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50" placeholder="Type or select..." min="1" />
                 <datalist id="assign-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="300" /></datalist>
               </div>
@@ -302,7 +326,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-blue-900 mb-1">Amount</label>
-                {/* HYBRID DATALIST IMPLEMENTED */}
                 <input type="number" list="transfer-amounts" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="w-full p-2.5 border border-blue-200 rounded-lg bg-blue-50" placeholder="Type or select..." min="1" />
                 <datalist id="transfer-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="500" /><option value="1000" /></datalist>
               </div>
@@ -372,6 +395,30 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     <td className="p-3 font-bold text-purple-600">{agent.whatsapp}</td>
                     <td className="p-3 font-black text-green-600">{agent.accepted}</td>
                     <td className="p-3 text-right"><button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-yellow-100 text-yellow-700 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-yellow-200 disabled:opacity-50">Revoke Pending</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h3 className="text-lg font-bold text-gray-800 mt-8 mb-4">Manager Pool Overview</h3>
+        {managerStats.length === 0 ? <p className="text-gray-500">No managers found.</p> : (
+          <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-indigo-50 border-y border-indigo-100">
+                  <th className="p-3 font-semibold text-indigo-900 text-sm">Manager Email</th>
+                  <th className="p-3 font-semibold text-indigo-900 text-sm">Staff Count</th>
+                  <th className="p-3 font-semibold text-indigo-900 text-sm">Unassigned Pool Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                {managerStats.map((manager, i) => (
+                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="p-3 font-bold text-gray-800">{manager.email}</td>
+                    <td className="p-3 font-medium text-gray-600">{manager.total_agents} Staff</td>
+                    <td className="p-3 font-black text-blue-600">{manager.unassigned_pool} Leads</td>
                   </tr>
                 ))}
               </tbody>
@@ -538,6 +585,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </button>
             <button onClick={onLogout} className="bg-white border border-gray-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50 transition shadow-sm">Sign Out</button>
           </div>
+        </div>
+        <div className="md:hidden flex px-4 pb-2 space-x-2 overflow-x-auto bg-white border-t border-gray-100 pt-2">
+          <button onClick={() => setActiveTab('overview')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Command Center</button>
+          <button onClick={() => setActiveTab('data')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'data' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Global Matrix</button>
+          <button onClick={() => setActiveTab('directory')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'directory' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Directory</button>
         </div>
       </nav>
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8">
