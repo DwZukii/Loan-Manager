@@ -50,12 +50,12 @@ Balas *“YA”* untuk semakan 🆓
 
   const handleStatusChange = async (id, newStatus) => {
     setLeads(leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
-    await supabase.from('leads').update({ status: newStatus }).eq('id', id)
+    await supabase.from('leads').update({ status: newStatus, is_reviewed: false }).eq('id', id)
   }
 
   const handleSaveNote = async () => {
     setIsSavingNote(true)
-    const { error } = await supabase.from('leads').update({ agent_notes: currentNote }).eq('id', selectedLead.id)
+    const { error } = await supabase.from('leads').update({ agent_notes: currentNote, is_reviewed: false }).eq('id', selectedLead.id)
     if (!error) { 
       setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead)); 
       setSelectedLead({...selectedLead, agent_notes: currentNote}) 
@@ -88,7 +88,7 @@ Balas *“YA”* untuk semakan 🆓
     }
     
     const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName)
-    await supabase.from('leads').update({ document_url: publicUrlData.publicUrl }).eq('id', selectedLead.id)
+    await supabase.from('leads').update({ document_url: publicUrlData.publicUrl, is_reviewed: false }).eq('id', selectedLead.id)
     
     setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead)); 
     setSelectedLead({...selectedLead, document_url: publicUrlData.publicUrl})
@@ -102,7 +102,7 @@ Balas *“YA”* untuk semakan 🆓
     
     const fileName = selectedLead.document_url.split('/').pop(); 
     await supabase.storage.from('documents').remove([fileName])
-    await supabase.from('leads').update({ document_url: null }).eq('id', selectedLead.id)
+    await supabase.from('leads').update({ document_url: null, is_reviewed: false }).eq('id', selectedLead.id)
     
     setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead)); 
     setSelectedLead({...selectedLead, document_url: null}); 

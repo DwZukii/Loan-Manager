@@ -147,10 +147,16 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             const parts = cellStr.split(/[,/\n]/);
             parts.forEach(part => {
               let clean = part.replace(/\D/g, '');
-              if (clean.startsWith('1')) clean = '60' + clean;
-              else if (clean.startsWith('0')) clean = '6' + clean;
               
-              if (clean.startsWith('601')) extracted.push(clean);
+              if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) {
+                clean = '60' + clean;
+              } else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) {
+                clean = '6' + clean;
+              }
+              
+              if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) {
+                extracted.push(clean);
+              }
             });
           });
         });
