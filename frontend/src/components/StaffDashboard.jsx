@@ -218,7 +218,7 @@ Balas *“YA”* untuk semakan 🆓
             </div>
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">4</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Upload Documents</h3><p className="text-gray-600 leading-relaxed">If a client signs a form, select their file (Max 2MB) and explicitly click "Confirm & Upload" to securely send it to management.</p></div>
+              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Upload Documents</h3><p className="text-gray-600 leading-relaxed">If a client sends a file to be validated, select their file (Max 2MB) and explicitly click "Confirm & Upload" to securely send it to management.</p></div>
             </div>
           </div>
         </div>

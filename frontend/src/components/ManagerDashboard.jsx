@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview') 
@@ -42,33 +43,56 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setMyTeamList(myAgents)
     setMyTeamEmails(teamEmails)
 
-    const { data: statsData } = await supabase.from('leads').select('*')
-    if (statsData) {
-      let counts = { 'Set A': 0, 'Set B': 0, 'Set C': 0, 'External / Manual': 0 }
-      const statsMap = {}
+    let counts = { 'Set A': 0, 'Set B': 0, 'Set C': 0, 'External / Manual': 0 }
+    const statsMap = {}
+    
+    myAgents.forEach(agent => {
+      statsMap[agent.email] = { email: agent.email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 }
+    })
 
-      statsData.forEach(lead => {
-        if (lead.assigned_to === 'unassigned' && lead.pool_owner === userEmail) { 
-          const setKey = lead.lead_set || 'Set A';
-          if (counts[setKey] !== undefined) counts[setKey]++;
-        } 
-        else if (teamEmails.includes(lead.assigned_to)) {
-          const email = lead.assigned_to
-          if (!statsMap[email]) {
-            statsMap[email] = { email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 }
+    let hasMore = true;
+    let startItem = 0;
+    const step = 1000;
+    
+    while (hasMore) {
+      const { data: chunk, error } = await supabase
+        .from('leads')
+        .select('assigned_to, status, lead_set, pool_owner')
+        .range(startItem, startItem + step - 1);
+        
+      if (error || !chunk || chunk.length === 0) {
+        hasMore = false;
+      } else {
+        chunk.forEach(lead => {
+          if (lead.assigned_to === 'unassigned' && lead.pool_owner === userEmail) { 
+            const setKey = lead.lead_set || 'Set A';
+            if (counts[setKey] !== undefined) counts[setKey]++;
+          } 
+          else if (teamEmails.includes(lead.assigned_to)) {
+            const email = lead.assigned_to
+            if (!statsMap[email]) {
+              statsMap[email] = { email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 }
+            }
+            statsMap[email].total++
+            if (lead.status === 'Pending') statsMap[email].pending++
+            if (lead.status === 'Accepted') statsMap[email].accepted++
+            if (lead.status === 'Rejected') statsMap[email].rejected++
+            if (lead.status === 'Thinking') statsMap[email].thinking++
+            if (lead.status === 'Called (No Answer)') statsMap[email].called++
+            if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
           }
-          statsMap[email].total++
-          if (lead.status === 'Pending') statsMap[email].pending++
-          if (lead.status === 'Accepted') statsMap[email].accepted++
-          if (lead.status === 'Rejected') statsMap[email].rejected++
-          if (lead.status === 'Thinking') statsMap[email].thinking++
-          if (lead.status === 'Called (No Answer)') statsMap[email].called++
-          if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
+        });
+        
+        if (chunk.length < step) {
+          hasMore = false;
+        } else {
+          startItem += step;
         }
-      })
-      setUnassignedCounts(counts)
-      setAgentStats(Object.values(statsMap))
+      }
     }
+    
+    setUnassignedCounts(counts)
+    setAgentStats(Object.values(statsMap))
 
     const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(100) 
     let workedOnLeads = [];
@@ -164,10 +188,16 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           row.forEach(cell => {
             if (!cell) return;
             const cellStr = String(cell);
-            if (/[a-zA-Z]/.test(cellStr)) return;
-            const parts = cellStr.split(/[,/\n]/);
+            
+            // Normalize separators and custom words to comma
+            const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',');
+            const parts = normalized.split(',');
+            
             parts.forEach(part => {
               let clean = part.replace(/\D/g, '');
+              if (!clean) return;
+              
+              if (clean.startsWith('0060')) clean = clean.substring(2);
               
               if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) {
                 clean = '60' + clean;
@@ -182,9 +212,15 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           });
         });
         const uniqueNumbers = [...new Set(extracted)];
-        setValidNumbers(uniqueNumbers);
-        if (uniqueNumbers.length > 0) setUploadStatus(`Found ${uniqueNumbers.length} valid numbers.`);
-        else setUploadStatus("No valid mobile numbers found.");
+        
+        if (uniqueNumbers.length > 10000) {
+          setValidNumbers([]);
+          setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`);
+        } else {
+          setValidNumbers(uniqueNumbers);
+          if (uniqueNumbers.length > 0) setUploadStatus(`Found ${uniqueNumbers.length} valid numbers.`);
+          else setUploadStatus("No valid mobile numbers found.");
+        }
       } catch { setUploadStatus("Error reading file."); }
     };
     reader.readAsBinaryString(file);
@@ -192,8 +228,37 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleUploadToDatabase = async () => {
-    if (validNumbers.length === 0) return; setUploadStatus(`Pushing ${validNumbers.length} numbers...`);
-    const leadsToInsert = validNumbers.map(phone => ({ 
+    if (validNumbers.length === 0) return; 
+    setUploadStatus(`Scanning ${validNumbers.length} numbers against the global database...`);
+    
+    let trulyFreshNumbers = [];
+    const chunkSize = 200; 
+    
+    for (let i = 0; i < validNumbers.length; i += chunkSize) {
+      const chunk = validNumbers.slice(i, i + chunkSize);
+      
+      const { data: existingLeads } = await supabase
+        .from('leads')
+        .select('phone_number')
+        .in('phone_number', chunk);
+        
+      const existingSet = new Set(existingLeads ? existingLeads.map(l => l.phone_number) : []);
+      const freshChunk = chunk.filter(phone => !existingSet.has(phone));
+      trulyFreshNumbers.push(...freshChunk);
+    }
+
+    const rejectedCount = validNumbers.length - trulyFreshNumbers.length;
+    
+    if (trulyFreshNumbers.length === 0) {
+      setUploadStatus(`Upload cancelled: All ${validNumbers.length} leads are already in the database!`);
+      setValidNumbers([]);
+      document.getElementById('file-upload-input').value = '';
+      return;
+    }
+    
+    setUploadStatus(`Pushing ${trulyFreshNumbers.length} clean numbers... (Skipped ${rejectedCount} duplicates)`);
+    
+    const leadsToInsert = trulyFreshNumbers.map(phone => ({ 
       phone_number: phone, 
       assigned_to: 'unassigned', 
       status: 'Pending', 
@@ -203,9 +268,16 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       lead_set: uploadSet,
       pool_owner: userEmail 
     }));
+
     const { error } = await supabase.from('leads').insert(leadsToInsert)
-    if (!error) { setUploadStatus(`Success! Added numbers to ${uploadSet}.`); setValidNumbers([]); document.getElementById('file-upload-input').value = ''; fetchManagerData(); }
-    else setUploadStatus(`Error: ${error.message}`)
+    if (!error) { 
+        setUploadStatus(`Success! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
+        setValidNumbers([]); 
+        document.getElementById('file-upload-input').value = ''; 
+        fetchManagerData(); 
+    } else {
+        setUploadStatus(`Error: ${error.message}`)
+    }
   }
 
   const handleAssignLeads = async () => {
@@ -275,63 +347,69 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span className="bg-blue-100 text-blue-700 rounded-full w-8 h-8 flex items-center justify-center text-sm">1</span> 
-            Clean & Add to My Pool
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-indigo-200 relative overflow-hidden flex flex-col h-full">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
+            <span className="bg-indigo-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-indigo-300 flex-shrink-0">1</span> 
+            Clean & Add
           </h2>
-          <div className="space-y-4 flex-1 flex flex-col">
+          <div className="space-y-6 flex-1 flex flex-col relative z-10">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Target Database Set</label>
-              <select value={uploadSet} onChange={(e) => setUploadSet(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50 mb-2 font-bold text-gray-700">
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Target Database Set</label>
+              <select value={uploadSet} onChange={(e) => setUploadSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
                 <option value="Set A">Database: Set A</option>
                 <option value="Set B">Database: Set B</option>
                 <option value="Set C">Database: Set C</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Upload Messy Spreadsheet</label>
-              <input id="file-upload-input" type="file" onChange={handleFileUpload} className="w-full p-2 border border-gray-200 rounded-lg bg-gray-50 text-sm" />
-              <p className="text-xs text-gray-400 mt-2 italic">Auto-scans all cells, ignores text, fixes country codes, and removes duplicates.</p>
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Upload Messy Spreadsheet</label>
+              <input id="file-upload-input" type="file" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded-xl bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              <p className="text-xs text-indigo-600/80 mt-3 font-medium">Auto-scans all cells, ignores text, fixes country codes, and removes duplicates.</p>
             </div>
             <div className="mt-auto pt-4">
               {validNumbers.length > 0 ? (
-                <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
-                  <p className="text-sm font-bold text-green-800 mb-3">{uploadStatus}</p>
-                  <button onClick={handleUploadToDatabase} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 shadow-sm transition">Push to Personal {uploadSet}</button>
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
+                  <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
+                  <button onClick={handleUploadToDatabase} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all">Push to Personal {uploadSet}</button>
                 </div>
               ) : (
-                uploadStatus && <p className="text-sm font-medium text-blue-600">{uploadStatus}</p>
+                uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">{uploadStatus}</p>
               )}
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <span className="bg-green-100 text-green-700 rounded-full w-8 h-8 flex items-center justify-center text-sm">2</span> 
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative overflow-hidden flex flex-col h-full">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+          <h2 className="text-2xl font-bold text-emerald-900 mb-6 flex items-center gap-3 relative z-10">
+            <span className="bg-emerald-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-emerald-300 flex-shrink-0">2</span> 
             Distribute to Team
           </h2>
-          <div className="space-y-4 flex-1 flex flex-col">
-            <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200 flex justify-between text-sm text-gray-600">
-              <span>Set A: <b className="text-blue-600">{unassignedCounts['Set A']||0}</b></span>
-              <span>Set B: <b className="text-blue-600">{unassignedCounts['Set B']||0}</b></span>
-              <span>Set C: <b className="text-blue-600">{unassignedCounts['Set C']||0}</b></span>
+          <div className="space-y-6 flex-1 flex flex-col relative z-10">
+            <div className="bg-white rounded-xl border border-emerald-200 flex flex-col text-sm text-emerald-900 shadow-sm overflow-hidden">
+              <div className="flex justify-between items-center p-3.5 border-b border-emerald-100 font-bold bg-emerald-50/50"><span>Set A Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set A']||0}</b></div>
+              <div className="flex justify-between items-center p-3.5 border-b border-emerald-100 font-bold bg-emerald-50/50"><span>Set B Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
+              <div className="flex justify-between items-center p-3.5 font-bold bg-emerald-50/50"><span>Set C Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pull From</label>
-                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50 font-bold text-gray-700"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
+                <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Pull From</label>
+                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-black text-emerald-900 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow">
+                  <option value="Set A">Set A</option>
+                  <option value="Set B">Set B</option>
+                  <option value="Set C">Set C</option>
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Amount</label>
                 <input 
                   type="number" 
                   list="assign-amounts" 
                   value={assignAmount} 
                   onChange={(e) => setAssignAmount(e.target.value)} 
-                  className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50"
-                  placeholder="Type or select..."
+                  className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-black text-emerald-900 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow"
+                  placeholder="Type..."
                   min="1"
                 />
                 <datalist id="assign-amounts">
@@ -343,51 +421,52 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Staff Member</label>
-              <select value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-50">
+              <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Select Staff Member</label>
+              <select value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow">
                 <option value="">Choose a staff member...</option>
                 {myTeamEmails.map(email => <option key={email} value={email}>{email}</option>)}
               </select>
             </div>
-            <div className="mt-auto pt-4 space-y-2">
-              <button onClick={handleAssignLeads} className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 shadow-sm transition">Assign Numbers</button>
+            <div className="mt-auto pt-2 space-y-3">
+              <button onClick={handleAssignLeads} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all">Assign Numbers</button>
               {unassignedCounts[assignSet] > 0 && (
-                <button onClick={handleClearPool} className="w-full py-2 border border-red-200 text-red-500 rounded-lg text-sm font-bold hover:bg-red-50 transition">Clear Selected Set</button>
+                <button onClick={handleClearPool} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors">Clear Selected Set</button>
               )}
-              {assignStatus && <p className="text-sm font-medium text-green-600 text-center">{assignStatus}</p>}
+              {assignStatus && <p className="text-sm font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center shadow-sm">{assignStatus}</p>}
             </div>
           </div>
         </div>
 
       </div>
       
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">🔔 My Team Activity & Notes</h2>
-        {activeLeads.length === 0 ? <p className="text-gray-500">No active notes or files to review.</p> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-amber-200 mt-6 relative overflow-hidden flex flex-col">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+        <h2 className="text-2xl font-bold text-amber-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0">🔔</span> My Team Activity & Notes</h2>
+        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10">No active notes or files to review.</p> : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 relative z-10">
             {activeLeads.map(lead => {
               if (lead.type === 'admin_drop') {
                 return (
-                  <div key={lead.id} className="border border-indigo-200 rounded-xl p-4 bg-indigo-50 relative group hover:bg-indigo-100 transition-colors">
-                    <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-3 right-3 text-indigo-400 hover:text-indigo-700 font-bold px-2 py-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100">✕ Dismiss</button>
-                    <div className="flex justify-between items-start mb-2 pr-20">
-                      <h3 className="font-bold text-indigo-900">System Alert</h3>
-                      <span className="text-xs px-2 py-1 rounded font-bold bg-indigo-200 text-indigo-800">{lead.status}</span>
+                  <div key={lead.id} className="border border-indigo-200 rounded-xl p-5 bg-indigo-50/50 relative group shadow-sm hover:shadow transition-shadow">
+                    <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100">✕ Dismiss</button>
+                    <div className="flex justify-between items-start mb-3 pr-20">
+                      <h3 className="font-black text-indigo-900 text-lg flex items-center gap-2">⚠️ System Alert</h3>
+                      <span className="text-xs px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-200 bg-indigo-100 text-indigo-800">{lead.status}</span>
                     </div>
-                    <p className="text-sm text-indigo-700 font-bold">{lead.message}</p>
+                    <p className="text-sm text-indigo-800 font-bold">{lead.message}</p>
                   </div>
                 )
               }
               return (
-                <div key={lead.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50 relative group hover:bg-white transition-colors">
-                  <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 font-bold px-2 py-1 rounded bg-white shadow-sm opacity-0 group-hover:opacity-100">✕ Dismiss</button>
-                  <div className="flex justify-between items-start mb-2 pr-20">
-                    <h3 className="font-bold text-gray-800">{lead.phone_number}</h3>
-                    <span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-yellow-100 text-yellow-700'}`}>{lead.status}</span>
+                <div key={lead.id} className="border border-amber-100 rounded-xl p-5 bg-amber-50/30 relative group shadow-sm hover:shadow transition-shadow">
+                  <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-gray-100">✕ Dismiss</button>
+                  <div className="flex justify-between items-start mb-3 pr-20">
+                    <h3 className="font-black text-gray-800 text-lg">{lead.phone_number}</h3>
+                    <span className={`text-xs px-3 py-1 rounded-full font-bold shadow-sm border ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700 border-green-200' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-700 border-gray-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>{lead.status}</span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-3 font-medium">Staff: {lead.assigned_to} • <span className="font-bold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                  {lead.agent_notes && <div className="bg-white border border-gray-200 rounded p-3 text-sm text-gray-700 italic mb-3">"{lead.agent_notes}"</div>}
-                  {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold underline">📎 View Document</a>}
+                  <p className="text-xs text-amber-700 mb-3 font-bold tracking-wide uppercase">Staff: {lead.assigned_to} • <span className="text-blue-600">{lead.lead_set || 'Set A'}</span></p>
+                  {lead.agent_notes && <div className="bg-white border border-amber-100 rounded-lg p-4 text-sm text-gray-700 italic mb-3 shadow-sm">"{lead.agent_notes}"</div>}
+                  {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 text-sm font-bold hover:text-blue-800 transition-colors bg-white px-3 py-1.5 rounded-lg border border-amber-100 shadow-sm">📎 View Document</a>}
                 </div>
               )
             })}
@@ -397,8 +476,68 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     </div>
   )
 
+  const calculateGlobalPipeline = () => {
+    let pending = 0, called = 0, whatsapp = 0, accepted = 0, rejected = 0, thinking = 0;
+    agentStats.forEach(agent => {
+      pending += agent.pending;
+      called += agent.called;
+      whatsapp += agent.whatsapp;
+      accepted += agent.accepted;
+      rejected += agent.rejected;
+      thinking += agent.thinking;
+    });
+    return [
+      { name: 'Pending', value: pending, color: '#9ca3af' },
+      { name: 'Called', value: called, color: '#3b82f6' },
+      { name: 'WhatsApp', value: whatsapp, color: '#8b5cf6' },
+      { name: 'Thinking', value: thinking, color: '#eab308' },
+      { name: 'Accepted', value: accepted, color: '#22c55e' },
+      { name: 'Rejected', value: rejected, color: '#ef4444' }
+    ].filter(item => item.value > 0);
+  };
+
   const renderDataMatrixTab = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Team Performance Tracker</h3>
+          <div className="h-64">
+            {agentStats.length === 0 ? <div className="h-full flex items-center justify-center text-gray-400">No agent data available</div> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={agentStats} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
+                  <XAxis dataKey="email" tickFormatter={(v) => v.split('@')[0]} stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip cursor={{fill: '#f3f4f6'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}} />
+                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}}/>
+                  <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="accepted" name="Accepted" fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Team Pipeline Health</h3>
+          <div className="h-64 relative flex items-center justify-center">
+            {calculateGlobalPipeline().length === 0 ? <p className="text-gray-400 text-sm">No pipeline data</p> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={calculateGlobalPipeline()} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" stroke="none">
+                    {calculateGlobalPipeline().map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip wrapperStyle={{outline: 'none'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}/>
+                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <h2 className="text-xl font-bold text-gray-800 mb-4">My Team Data Matrix</h2>
         {agentStats.length === 0 ? <p className="text-gray-500">No leads assigned to your team yet.</p> : (
@@ -417,17 +556,24 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               </thead>
               <tbody>
                 {agentStats.map((agent, i) => (
-                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="p-3 font-bold text-gray-800">
-                      <button onClick={() => loadAgentProfile(agent)} className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold">{agent.email}</button>
+                  <tr key={i} className="border-b border-gray-100 hover:bg-indigo-50/30 transition-colors group">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-blue-200 uppercase">
+                          {agent.email.charAt(0)}
+                        </div>
+                        <button onClick={() => loadAgentProfile(agent)} className="text-gray-800 hover:text-blue-600 cursor-pointer font-bold transition-colors">{agent.email}</button>
+                      </div>
                     </td>
-                    <td className="p-3 text-gray-600 font-bold">{agent.total}</td>
-                    <td className="p-3 text-gray-400">{agent.pending}</td>
-                    <td className="p-3 font-bold text-blue-600">{agent.called}</td>
-                    <td className="p-3 font-bold text-purple-600">{agent.whatsapp}</td>
-                    <td className="p-3 font-black text-green-600">{agent.accepted}</td>
-                    <td className="p-3 text-right">
-                      <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-yellow-100 text-yellow-700 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-yellow-200 disabled:opacity-50">Revoke Pending</button>
+                    <td className="p-4 text-gray-800 font-black">{agent.total}</td>
+                    <td className="p-4"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-bold text-xs border border-gray-200">{agent.pending}</span></td>
+                    <td className="p-4"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md font-bold text-xs border border-blue-100">{agent.called}</span></td>
+                    <td className="p-4"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-md font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
+                    <td className="p-4"><span className="bg-green-50 text-green-700 px-2.5 py-1 rounded-md font-black text-xs border border-green-200 shadow-sm">{agent.accepted}</span></td>
+                    <td className="p-4 text-right">
+                      <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border border-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200 disabled:opacity-30 transition-all shadow-sm group-hover:shadow">
+                        Revoke
+                      </button>
                     </td>
                   </tr>
                 ))}
