@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 
 export default function StaffDashboard({ userEmail, onLogout }) {
@@ -40,16 +40,23 @@ Balas *“YA”* untuk semakan 🆓
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
 
-  useEffect(() => { fetchMyLeads() }, [])
-
-  const fetchMyLeads = async () => {
+  const fetchMyLeads = useCallback(async () => {
     const { data } = await supabase.from('leads').select('*').eq('assigned_to', userEmail).order('created_at', { ascending: false })
     if (data) setLeads(data); 
     setIsLoading(false)
-  }
+  }, [userEmail])
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from('leads').select('*').eq('assigned_to', userEmail).order('created_at', { ascending: false })
+      if (data) setLeads(data); 
+      setIsLoading(false)
+    }
+    fetch()
+  }, [userEmail])
 
   const handleStatusChange = async (id, newStatus) => {
-    setLeads(leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
+    setLeads(prevLeads => prevLeads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
     await supabase.from('leads').update({ status: newStatus, is_reviewed: false }).eq('id', id)
   }
 
@@ -110,7 +117,11 @@ Balas *“YA”* untuk semakan 🆓
   }
 
   const handleManualSubmit = async () => {
-    if (!manualPhone || manualPhone.length < 10) return alert("Valid phone number required.");
+    let cleanPhone = manualPhone ? manualPhone.replace(/\D/g, '') : '';
+    if (cleanPhone.startsWith('1')) cleanPhone = '60' + cleanPhone; 
+    else if (cleanPhone.startsWith('0')) cleanPhone = '6' + cleanPhone;
+
+    if (cleanPhone.length < 10) return alert("Valid phone number required.");
     setIsManualSaving(true);
     let finalUrl = null;
     
@@ -126,10 +137,6 @@ Balas *“YA”* untuk semakan 🆓
       const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
       finalUrl = urlData.publicUrl;
     }
-    
-    let cleanPhone = manualPhone.replace(/\D/g, '');
-    if (cleanPhone.startsWith('1')) cleanPhone = '60' + cleanPhone; 
-    else if (cleanPhone.startsWith('0')) cleanPhone = '6' + cleanPhone;
     
     const { error } = await supabase.from('leads').insert([{ 
       phone_number: cleanPhone, 

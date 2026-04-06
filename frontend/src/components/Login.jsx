@@ -11,7 +11,7 @@ export default function Login({ onLogin }) {
   const handleSignIn = async () => {
     setIsLoading(true)
     setErrorMsg('')
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
     if (authError) { setErrorMsg(authError.message); setIsLoading(false); return }
 
     const { data: profileData, error: profileError } = await supabase.from('profiles').select('role').eq('email', email).single()

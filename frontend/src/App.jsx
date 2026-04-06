@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './supabase'
 
-import Login from './components/Login'
-import AdminDashboard from './components/AdminDashboard'
-import ManagerDashboard from './components/ManagerDashboard'
-import StaffDashboard from './components/StaffDashboard'
+const Login = lazy(() => import('./components/Login'))
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'))
+const ManagerDashboard = lazy(() => import('./components/ManagerDashboard'))
+const StaffDashboard = lazy(() => import('./components/StaffDashboard'))
 
 export default function App() {
   const [userRole, setUserRole] = useState(null)
@@ -39,10 +39,13 @@ export default function App() {
   }
 
   if (isCheckingAuth) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>
-  
-  if (userRole === 'super_admin') return <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
-  if (userRole === 'manager') return <ManagerDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />
-  if (userRole === 'agent') return <StaffDashboard userEmail={userEmail} onLogout={handleLogout} />
 
-  return <Login onLogin={(role, email) => { setUserRole(role); setUserEmail(email); }} />
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>}>
+      {userRole === 'super_admin' && <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
+      {userRole === 'manager' && <ManagerDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
+      {userRole === 'agent' && <StaffDashboard userEmail={userEmail} onLogout={handleLogout} />}
+      {!userRole && <Login onLogin={(role, email) => { setUserRole(role); setUserEmail(email); }} />}
+    </Suspense>
+  )
 }
