@@ -252,21 +252,23 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (validNumbers.length === 0) return; 
     setUploadStatus(`Scanning ${validNumbers.length} numbers against the global database...`);
     
-    let trulyFreshNumbers = [];
-    const chunkSize = 200; 
-    
+    const chunkSize = 1000;
+    const chunks = [];
     for (let i = 0; i < validNumbers.length; i += chunkSize) {
-      const chunk = validNumbers.slice(i, i + chunkSize);
-      
-      const { data: existingLeads } = await supabase
-        .from('leads')
-        .select('phone_number')
-        .in('phone_number', chunk);
-        
-      const existingSet = new Set(existingLeads ? existingLeads.map(l => l.phone_number) : []);
-      const freshChunk = chunk.filter(phone => !existingSet.has(phone));
-      trulyFreshNumbers.push(...freshChunk);
+      chunks.push(validNumbers.slice(i, i + chunkSize));
     }
+
+    // Fire all chunk queries in parallel instead of sequentially
+    const results = await Promise.all(
+      chunks.map(chunk =>
+        supabase.from('leads').select('phone_number').in('phone_number', chunk)
+      )
+    );
+
+    const existingSet = new Set(
+      results.flatMap(({ data }) => data ? data.map(l => l.phone_number) : [])
+    );
+    const trulyFreshNumbers = validNumbers.filter(phone => !existingSet.has(phone));
 
     const rejectedCount = validNumbers.length - trulyFreshNumbers.length;
     
@@ -277,20 +279,28 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       return;
     }
     
-    setUploadStatus(`Pushing ${trulyFreshNumbers.length} clean numbers... (Skipped ${rejectedCount} duplicates)`);
-    
     const leadsToInsert = trulyFreshNumbers.map(phone => ({ 
       phone_number: phone, assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null, is_reviewed: true, lead_set: uploadSet, pool_owner: userEmail 
     }));
-    
-    const { error } = await supabase.from('leads').insert(leadsToInsert)
-    if (!error) { 
-        setUploadStatus(`Success! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
+
+    // Insert in batches of 500 to avoid overloading the DB with one giant request
+    const insertChunkSize = 500;
+    let insertError = null;
+    for (let i = 0; i < leadsToInsert.length; i += insertChunkSize) {
+      const batch = leadsToInsert.slice(i, i + insertChunkSize);
+      const inserted = Math.min(i + insertChunkSize, leadsToInsert.length);
+      setUploadStatus(`Pushing... ${inserted} / ${leadsToInsert.length} (Skipped ${rejectedCount} duplicates)`);
+      const { error } = await supabase.from('leads').insert(batch);
+      if (error) { insertError = error; break; }
+    }
+
+    if (!insertError) { 
+        setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
         setValidNumbers([]); 
         document.getElementById('file-upload-input').value = ''; 
         fetchAdminData(); 
     } else {
-        setUploadStatus(`Error: ${error.message}`)
+        setUploadStatus(`Error: ${insertError.message}`)
     }
   }
 
@@ -301,10 +311,19 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (finalAmount <= 0) return setAssignStatus(`No unassigned leads in ${assignSet}.`)
     
     setAssignStatus(`Assigning leads...`)
-    const { data: leadsToAssign } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
+    const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
+    if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
+
     const ids = leadsToAssign.map(lead => lead.id)
-    const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids)
-    if (!error) { setAssignStatus(`Assigned ${finalAmount} leads.`); fetchAdminData() }
+    // Chunk the update to avoid a large .in() overloading the DB
+    const updateChunkSize = 500;
+    let assignError = null;
+    for (let i = 0; i < ids.length; i += updateChunkSize) {
+      const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
+      if (error) { assignError = error; break; }
+    }
+    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchAdminData() }
+    else setAssignStatus(`Error: ${assignError.message}`)
   }
 
   const handleTransferLeads = async () => {
@@ -314,16 +333,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (finalAmount <= 0) return setTransferStatus(`No leads in ${transferSet} to transfer.`)
     
     setTransferStatus(`Transferring leads...`)
-    const { data: leadsToTransfer } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet).limit(finalAmount)
+    const { data: leadsToTransfer, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet).limit(finalAmount)
+    if (fetchError || !leadsToTransfer) return setTransferStatus(`Error: Could not fetch leads. Please try again.`)
+
     const ids = leadsToTransfer.map(lead => lead.id)
-    
-    // Explicitly setting is_reviewed to false here triggers the Manager's "System Alert" notification
-    const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, is_reviewed: false }).in('id', ids)
-    
-    if (!error) { 
-      setTransferStatus(`Transferred ${finalAmount} leads.`); 
-      setTransferAmount('50'); setTransferManagerEmail(''); fetchAdminData() 
+    // Chunk the update — also sets is_reviewed: false which triggers Manager's "System Alert"
+    const updateChunkSize = 500;
+    let transferError = null;
+    for (let i = 0; i < ids.length; i += updateChunkSize) {
+      const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, is_reviewed: false }).in('id', ids.slice(i, i + updateChunkSize));
+      if (error) { transferError = error; break; }
     }
+
+    if (!transferError) { 
+      setTransferStatus(`✅ Transferred ${ids.length} leads to manager.`); 
+      setTransferAmount('50'); setTransferManagerEmail(''); fetchAdminData() 
+    } else setTransferStatus(`Error: ${transferError.message}`)
   }
 
   const handleClearPool = async () => {
@@ -382,16 +407,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       
       setArchiveStatus(`Files purged. Incinerating ${deadLeads.length} rows...`);
       
-      // 3. Delete the rows from the database
+      // 3. Delete rows in chunks of 500 to avoid overwhelming the DB
       const deadIds = deadLeads.map(lead => lead.id);
-      
-      // Since delete().in('id', array) has limits, doing it in chunks if necessary, but Supabase handles reasonably large deletes.
-      const { error: deleteError } = await supabase
-        .from('leads')
-        .delete()
-        .in('id', deadIds);
-        
-      if (deleteError) throw deleteError;
+      const deleteChunkSize = 500;
+      for (let i = 0; i < deadIds.length; i += deleteChunkSize) {
+        const { error: deleteError } = await supabase
+          .from('leads')
+          .delete()
+          .in('id', deadIds.slice(i, i + deleteChunkSize));
+        if (deleteError) throw deleteError;
+        setArchiveStatus(`Incinerating... ${Math.min(i + deleteChunkSize, deadIds.length)} / ${deadIds.length} rows`);
+      }
       
       setArchiveStatus(`✅ Success! Permanently incinerated ${deadLeads.length} dead leads and reclaimed space.`);
       fetchAdminData();

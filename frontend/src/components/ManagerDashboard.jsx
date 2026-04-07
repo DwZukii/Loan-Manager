@@ -231,21 +231,23 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (validNumbers.length === 0) return; 
     setUploadStatus(`Scanning ${validNumbers.length} numbers against the global database...`);
     
-    let trulyFreshNumbers = [];
-    const chunkSize = 200; 
-    
+    const chunkSize = 1000;
+    const chunks = [];
     for (let i = 0; i < validNumbers.length; i += chunkSize) {
-      const chunk = validNumbers.slice(i, i + chunkSize);
-      
-      const { data: existingLeads } = await supabase
-        .from('leads')
-        .select('phone_number')
-        .in('phone_number', chunk);
-        
-      const existingSet = new Set(existingLeads ? existingLeads.map(l => l.phone_number) : []);
-      const freshChunk = chunk.filter(phone => !existingSet.has(phone));
-      trulyFreshNumbers.push(...freshChunk);
+      chunks.push(validNumbers.slice(i, i + chunkSize));
     }
+
+    // Fire all chunk queries in parallel instead of sequentially
+    const results = await Promise.all(
+      chunks.map(chunk =>
+        supabase.from('leads').select('phone_number').in('phone_number', chunk)
+      )
+    );
+
+    const existingSet = new Set(
+      results.flatMap(({ data }) => data ? data.map(l => l.phone_number) : [])
+    );
+    const trulyFreshNumbers = validNumbers.filter(phone => !existingSet.has(phone));
 
     const rejectedCount = validNumbers.length - trulyFreshNumbers.length;
     
@@ -255,8 +257,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       document.getElementById('file-upload-input').value = '';
       return;
     }
-    
-    setUploadStatus(`Pushing ${trulyFreshNumbers.length} clean numbers... (Skipped ${rejectedCount} duplicates)`);
     
     const leadsToInsert = trulyFreshNumbers.map(phone => ({ 
       phone_number: phone, 
@@ -269,14 +269,24 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       pool_owner: userEmail 
     }));
 
-    const { error } = await supabase.from('leads').insert(leadsToInsert)
-    if (!error) { 
-        setUploadStatus(`Success! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
+    // Insert in batches of 500 to avoid overloading the DB with one giant request
+    const insertChunkSize = 500;
+    let insertError = null;
+    for (let i = 0; i < leadsToInsert.length; i += insertChunkSize) {
+      const batch = leadsToInsert.slice(i, i + insertChunkSize);
+      const inserted = Math.min(i + insertChunkSize, leadsToInsert.length);
+      setUploadStatus(`Pushing... ${inserted} / ${leadsToInsert.length} (Skipped ${rejectedCount} duplicates)`);
+      const { error } = await supabase.from('leads').insert(batch);
+      if (error) { insertError = error; break; }
+    }
+
+    if (!insertError) { 
+        setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
         setValidNumbers([]); 
         document.getElementById('file-upload-input').value = ''; 
         fetchManagerData(); 
     } else {
-        setUploadStatus(`Error: ${error.message}`)
+        setUploadStatus(`Error: ${insertError.message}`)
     }
   }
 
@@ -288,10 +298,19 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (finalAmount <= 0) return setAssignStatus(`No leads in ${assignSet}.`)
     
     setAssignStatus(`Assigning leads...`)
-    const { data: leadsToAssign } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
+    const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
+    if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
+
     const ids = leadsToAssign.map(lead => lead.id)
-    const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids)
-    if (!error) { setAssignStatus(`Assigned ${finalAmount} leads.`); fetchManagerData() }
+    // Chunk the update to avoid a large .in() overloading the DB
+    const updateChunkSize = 500;
+    let assignError = null;
+    for (let i = 0; i < ids.length; i += updateChunkSize) {
+      const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
+      if (error) { assignError = error; break; }
+    }
+    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchManagerData() }
+    else setAssignStatus(`Error: ${assignError.message}`)
   }
 
   const handleClearPool = async () => {
