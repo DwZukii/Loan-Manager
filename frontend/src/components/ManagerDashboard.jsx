@@ -43,56 +43,57 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setMyTeamList(myAgents)
     setMyTeamEmails(teamEmails)
 
-    let counts = { 'Set A': 0, 'Set B': 0, 'Set C': 0, 'External / Manual': 0 }
-    const statsMap = {}
-    
+    // 1. Get pool counts using COUNT queries — returns just numbers, no row data transferred
+    const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
+    const countResults = await Promise.all(
+      setKeys.map(set =>
+        supabase.from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', 'unassigned')
+          .eq('pool_owner', userEmail)
+          .eq('lead_set', set)
+      )
+    );
+    const counts = {};
+    setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
+    setUnassignedCounts(counts);
+
+    // 2. Get agent stats — only scan leads belonging to THIS manager's team
+    const statsMap = {};
     myAgents.forEach(agent => {
       statsMap[agent.email] = { email: agent.email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 }
-    })
+    });
 
-    let hasMore = true;
-    let startItem = 0;
-    const step = 1000;
-    
-    while (hasMore) {
-      const { data: chunk, error } = await supabase
-        .from('leads')
-        .select('assigned_to, status, lead_set, pool_owner')
-        .range(startItem, startItem + step - 1);
-        
-      if (error || !chunk || chunk.length === 0) {
-        hasMore = false;
-      } else {
-        chunk.forEach(lead => {
-          if (lead.assigned_to === 'unassigned' && lead.pool_owner === userEmail) { 
-            const setKey = lead.lead_set || 'Set A';
-            if (counts[setKey] !== undefined) counts[setKey]++;
-          } 
-          else if (teamEmails.includes(lead.assigned_to)) {
-            const email = lead.assigned_to
-            if (!statsMap[email]) {
-              statsMap[email] = { email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 }
-            }
-            statsMap[email].total++
-            if (lead.status === 'Pending') statsMap[email].pending++
-            if (lead.status === 'Accepted') statsMap[email].accepted++
-            if (lead.status === 'Rejected') statsMap[email].rejected++
-            if (lead.status === 'Thinking') statsMap[email].thinking++
-            if (lead.status === 'Called (No Answer)') statsMap[email].called++
-            if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
-          }
-        });
-        
-        if (chunk.length < step) {
+    if (teamEmails.length > 0) {
+      let hasMore = true;
+      let startItem = 0;
+      const step = 1000;
+      while (hasMore) {
+        const { data: chunk, error } = await supabase
+          .from('leads')
+          .select('assigned_to, status')
+          .in('assigned_to', teamEmails)  // ← Only this team's leads, not all leads
+          .range(startItem, startItem + step - 1);
+        if (error || !chunk || chunk.length === 0) {
           hasMore = false;
         } else {
+          chunk.forEach(lead => {
+            const email = lead.assigned_to;
+            if (!statsMap[email]) statsMap[email] = { email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 };
+            statsMap[email].total++;
+            if (lead.status === 'Pending') statsMap[email].pending++;
+            if (lead.status === 'Accepted') statsMap[email].accepted++;
+            if (lead.status === 'Rejected') statsMap[email].rejected++;
+            if (lead.status === 'Thinking') statsMap[email].thinking++;
+            if (lead.status === 'Called (No Answer)') statsMap[email].called++;
+            if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++;
+          });
+          hasMore = chunk.length === step;
           startItem += step;
         }
       }
     }
-    
-    setUnassignedCounts(counts)
-    setAgentStats(Object.values(statsMap))
+    setAgentStats(Object.values(statsMap));
 
     const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(100) 
     let workedOnLeads = [];

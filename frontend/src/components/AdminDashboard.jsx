@@ -62,77 +62,87 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       teamEmails = profilesData ? profilesData.filter(p => p.manager_email === userEmail).map(p => p.email) : []
     }
 
-    let counts = { 'Set A': 0, 'Set B': 0, 'Set C': 0, 'External / Manual': 0 }
-    const statsMap = {}
-    const mStatsMap = {}
+    const allAgents = profilesData ? profilesData.filter(p => p.role === 'agent') : [];
+    const allManagers = profilesData ? profilesData.filter(p => p.role === 'manager') : [];
 
-    if (profilesData) {
-      profilesData.filter(p => p.role === 'agent').forEach(agent => {
-        statsMap[agent.email] = { 
-          email: agent.email, 
-          manager: agent.manager_email || 'Unassigned', 
-          total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0 
-        }
-      })
-      
-      profilesData.filter(p => p.role === 'manager').forEach(manager => {
-         mStatsMap[manager.email] = { email: manager.email, unassigned_pool: 0, total_agents: 0 }
-      })
-      
-      profilesData.filter(p => p.role === 'agent').forEach(agent => {
-         if (agent.manager_email && mStatsMap[agent.manager_email]) {
-             mStatsMap[agent.manager_email].total_agents++;
-         }
-      })
-    }
+    // 1. Admin's own pool counts — COUNT queries only, no row data transferred
+    const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
+    const countResults = await Promise.all(
+      setKeys.map(set =>
+        supabase.from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', 'unassigned')
+          .eq('pool_owner', userEmail)
+          .eq('lead_set', set)
+      )
+    );
+    const counts = {};
+    setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
+    setUnassignedCounts(counts);
 
-    let hasMore = true;
-    let startItem = 0;
-    const step = 1000;
-    
-    while (hasMore) {
-      const { data: chunk, error } = await supabase
-        .from('leads')
-        .select('assigned_to, status, lead_set, pool_owner')
-        .range(startItem, startItem + step - 1);
-        
-      if (error || !chunk || chunk.length === 0) {
-        hasMore = false;
-      } else {
-        chunk.forEach(lead => {
-          if (lead.assigned_to === 'unassigned') { 
-            if (lead.pool_owner === userEmail) {
-              const setKey = lead.lead_set || 'Set A';
-              if (counts[setKey] !== undefined) counts[setKey]++;
-            } else if (mStatsMap[lead.pool_owner]) {
-              mStatsMap[lead.pool_owner].unassigned_pool++;
-            }
-          } 
-          else if (teamEmails.includes(lead.assigned_to)) {
-            const email = lead.assigned_to
-            if (statsMap[email]) {
-              statsMap[email].total++
-              if (lead.status === 'Pending') statsMap[email].pending++
-              if (lead.status === 'Accepted') statsMap[email].accepted++
-              if (lead.status === 'Rejected') statsMap[email].rejected++
-              if (lead.status === 'Thinking') statsMap[email].thinking++
-              if (lead.status === 'Called (No Answer)') statsMap[email].called++
-              if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++
-            }
-          }
-        });
-        
-        if (chunk.length < step) {
+    // 2. Manager pool stats — parallel COUNT queries per manager, no row scanning
+    const mStatsMap = {};
+    allManagers.forEach(manager => {
+      mStatsMap[manager.email] = {
+        email: manager.email,
+        unassigned_pool: 0,
+        total_agents: allAgents.filter(a => a.manager_email === manager.email).length
+      }
+    });
+    const managerCountResults = await Promise.all(
+      allManagers.map(manager =>
+        supabase.from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', 'unassigned')
+          .eq('pool_owner', manager.email)
+      )
+    );
+    allManagers.forEach((manager, i) => {
+      mStatsMap[manager.email].unassigned_pool = managerCountResults[i].count || 0;
+    });
+    setManagerStats(Object.values(mStatsMap));
+
+    // 3. Agent stats — only scan leads assigned to known agents, not the entire table
+    const statsMap = {};
+    allAgents.forEach(agent => {
+      statsMap[agent.email] = {
+        email: agent.email,
+        manager: agent.manager_email || 'Unassigned',
+        total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0
+      }
+    });
+
+    if (teamEmails.length > 0) {
+      let hasMore = true;
+      let startItem = 0;
+      const step = 1000;
+      while (hasMore) {
+        const { data: chunk, error } = await supabase
+          .from('leads')
+          .select('assigned_to, status')
+          .in('assigned_to', teamEmails)  // ← Only agent leads, not all leads
+          .range(startItem, startItem + step - 1);
+        if (error || !chunk || chunk.length === 0) {
           hasMore = false;
         } else {
+          chunk.forEach(lead => {
+            const email = lead.assigned_to;
+            if (statsMap[email]) {
+              statsMap[email].total++;
+              if (lead.status === 'Pending') statsMap[email].pending++;
+              if (lead.status === 'Accepted') statsMap[email].accepted++;
+              if (lead.status === 'Rejected') statsMap[email].rejected++;
+              if (lead.status === 'Thinking') statsMap[email].thinking++;
+              if (lead.status === 'Called (No Answer)') statsMap[email].called++;
+              if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++;
+            }
+          });
+          hasMore = chunk.length === step;
           startItem += step;
         }
       }
     }
-    
-    setUnassignedCounts(counts)
-    setAgentStats(Object.values(statsMap))
-    setManagerStats(Object.values(mStatsMap))
+    setAgentStats(Object.values(statsMap));
 
     const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(200) 
     if (activeData) {
