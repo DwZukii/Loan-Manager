@@ -174,25 +174,28 @@ Balas *“YA”* untuk semakan 🆓
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
 
   const renderNav = () => (
-    <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+    <nav style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} className="sticky top-0 z-40 shadow-2xl">
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-extrabold text-indigo-950">Tele Manager <span className="text-blue-600 text-sm ml-1 uppercase">STAFF</span></h1>
-          <div className="hidden md:flex space-x-2">
-            <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'leads' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>My Leads</button>
-            <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'manual' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Manual Entry</button>
-            <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'tutorial' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Tutorial</button>
+        <div className="flex items-center gap-8">
+          <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+            <span className="text-white">Tele Manager</span>
+            <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest">STAFF</span>
+          </h1>
+          <div className="hidden md:flex items-center gap-1 p-1 rounded-xl" style={{background: 'rgba(255,255,255,0.08)'}}>
+            <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>My Leads</button>
+            <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Manual Entry</button>
+            <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-bold text-gray-400 hidden sm:block">{userEmail}</span>
-          <button onClick={onLogout} className="bg-white border border-gray-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-50 transition shadow-sm">Sign Out</button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-indigo-300 hidden sm:block">{userEmail}</span>
+          <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
         </div>
       </div>
-      <div className="md:hidden flex px-4 pb-2 space-x-2 overflow-x-auto">
-        <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'leads' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>My Leads</button>
-        <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'manual' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Manual Entry</button>
-        <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap ${activeTab === 'tutorial' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 bg-gray-50'}`}>Tutorial</button>
+      <div className="md:hidden flex px-4 pb-2 gap-1.5 overflow-x-auto pt-1" style={{background: 'rgba(0,0,0,0.2)'}}>
+        <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>My Leads</button>
+        <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Manual Entry</button>
+        <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Tutorial</button>
       </div>
     </nav>
   )
