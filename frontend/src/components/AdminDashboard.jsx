@@ -106,7 +106,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     });
     setManagerStats(Object.values(mStatsMap));
 
-    // 3. Agent stats — only scan leads assigned to known agents, not the entire table
+    // 3. Agent stats — single GROUP BY via RPC, Postgres counts internally
+    // Always 1 round trip regardless of how many leads exist
     const statsMap = {};
     allAgents.forEach(agent => {
       statsMap[agent.email] = {
@@ -117,44 +118,38 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     });
 
     if (teamEmails.length > 0) {
-      let hasMore = true;
-      let startItem = 0;
-      const step = 1000;
-      while (hasMore) {
-        const { data: chunk, error } = await supabase
-          .from('leads')
-          .select('assigned_to, status')
-          .in('assigned_to', teamEmails)  // ← Only agent leads, not all leads
-          .range(startItem, startItem + step - 1);
-        if (error || !chunk || chunk.length === 0) {
-          hasMore = false;
-        } else {
-          chunk.forEach(lead => {
-            const email = lead.assigned_to;
-            if (statsMap[email]) {
-              statsMap[email].total++;
-              if (lead.status === 'Pending') statsMap[email].pending++;
-              if (lead.status === 'Accepted') statsMap[email].accepted++;
-              if (lead.status === 'Rejected') statsMap[email].rejected++;
-              if (lead.status === 'Thinking') statsMap[email].thinking++;
-              if (lead.status === 'Called (No Answer)') statsMap[email].called++;
-              if (lead.status === 'WhatsApp Sent') statsMap[email].whatsapp++;
-            }
-          });
-          hasMore = chunk.length === step;
-          startItem += step;
-        }
+      const { data: groupedStats } = await supabase.rpc('get_agent_stats', { agent_emails: teamEmails })
+      if (groupedStats) {
+        groupedStats.forEach(row => {
+          if (!statsMap[row.assigned_to]) return
+          statsMap[row.assigned_to].total += Number(row.count)
+          if (row.status === 'Pending') statsMap[row.assigned_to].pending += Number(row.count)
+          if (row.status === 'Accepted') statsMap[row.assigned_to].accepted += Number(row.count)
+          if (row.status === 'Rejected') statsMap[row.assigned_to].rejected += Number(row.count)
+          if (row.status === 'Thinking') statsMap[row.assigned_to].thinking += Number(row.count)
+          if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
+          if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
+        })
       }
     }
     setAgentStats(Object.values(statsMap));
 
-    const { data: activeData } = await supabase.from('leads').select('*').neq('assigned_to', 'unassigned').eq('is_reviewed', false).order('id', { ascending: false }).limit(200) 
-    if (activeData) {
-      const workedOnLeads = activeData.filter(lead => 
-        teamEmails.includes(lead.assigned_to) && 
-        (lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null)
-      )
-      setActiveLeads(workedOnLeads.slice(0, 50)) 
+    // Notification query — only fetch columns the panel displays, filter team upfront
+    // Avoids scanning entire unreviewed pile which grows daily
+    if (teamEmails.length > 0) {
+      const { data: activeData } = await supabase
+        .from('leads')
+        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set')
+        .in('assigned_to', teamEmails)
+        .eq('is_reviewed', false)
+        .order('id', { ascending: false })
+        .limit(50)
+      if (activeData) {
+        const workedOnLeads = activeData.filter(lead =>
+          lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
+        )
+        setActiveLeads(workedOnLeads)
+      }
     }
   }, [userRole, userEmail])
 
