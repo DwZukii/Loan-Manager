@@ -21,6 +21,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
   const [assignStatus, setAssignStatus] = useState('')
+
+  const [extractMode, setExtractMode] = useState('all')
+  const [minAge, setMinAge] = useState(25)
+  const [maxAge, setMaxAge] = useState(55)
   
   const [transferManagerEmail, setTransferManagerEmail] = useState('')
   const [transferAmount, setTransferAmount] = useState('50')
@@ -203,59 +207,170 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (!error) { setAgentsList(agentsList.map(a => a.email === agentEmail ? { ...a, manager_email: newManagerEmail } : a)); fetchAdminData() } 
   }
 
+  // ── SHARED HELPERS ────────────────────────────────────────────────────────
+
+  // Classify a raw string as 'ic', 'phone', 'ambiguous', or null
+  // IC   = exactly 12 raw digits with a valid YYMMDD birth date
+  // Phone = normalises to a valid Malaysian 601x number (11 or 12 digits)
+  // Ambiguous = 6011xxxxxxxx (12 digits) — valid as both a November-1960 IC AND a 6011 phone
+  const classifyNumber = (rawPart) => {
+    const clean = String(rawPart).replace(/\D/g, '')
+    if (!clean) return null
+
+    // ── Phone normalisation ──
+    let p = clean
+    if (p.startsWith('0060')) p = p.substring(2)
+    if (p.startsWith('1') && (p.length === 9 || p.length === 10)) p = '60' + p
+    else if (p.startsWith('0') && (p.length === 10 || p.length === 11)) p = '6' + p
+    const phoneValid = p.startsWith('601') && (p.length === 11 || p.length === 12)
+
+    // ── IC validation (YYMMDD) ──
+    const mm = parseInt(clean.slice(2, 4))
+    const dd = parseInt(clean.slice(4, 6))
+    const icValid = clean.length === 12 && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31
+
+    if (icValid && phoneValid) return { type: 'ambiguous', icValue: clean, phoneValue: p }
+    if (icValid)               return { type: 'ic',        value: clean }
+    if (phoneValid)            return { type: 'phone',     value: p }
+    return null
+  }
+
+  // Derive age from a valid Malaysian IC string (YYMMDD...)
+  const extractAge = (icStr) => {
+    const yy = parseInt(icStr.slice(0, 2))
+    const currentYear = new Date().getFullYear()
+    const cutoff = currentYear % 100            // e.g. 26 in year 2026
+    const fullYear = yy <= cutoff ? 2000 + yy : 1900 + yy
+    return currentYear - fullYear
+  }
+
+  // ── MODE A: All Numbers ───────────────────────────────────────────────────
+  // Original behaviour — untouched. Iterates every cell and grabs all valid
+  // Malaysian phone numbers regardless of age or IC.
+  const runAllNumbersExtraction = (rawData) => {
+    const extracted = []
+    rawData.forEach(row => {
+      row.forEach(cell => {
+        if (!cell) return
+        const cellStr = String(cell)
+        const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
+        const parts = normalized.split(',')
+        parts.forEach(part => {
+          let clean = part.replace(/\D/g, '')
+          if (!clean) return
+          if (clean.startsWith('0060')) clean = clean.substring(2)
+          if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
+          else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean
+          if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean)
+        })
+      })
+    })
+    return extracted
+  }
+
+  // ── MODE B: By Age Range ──────────────────────────────────────────────────
+  // Iterates row-by-row. Each row must contain both a valid Malaysian IC and a
+  // phone number. Rows missing either are skipped. The IC is decoded to get the
+  // person's age; if the age falls outside [minAge, maxAge] the row is skipped.
+  //
+  // Disambiguation rules for the 6011/IC ambiguity:
+  //   clear IC + clear phone         → use both
+  //   clear IC + ambiguous (no phone) → treat ambiguous as phone
+  //   clear phone + ambiguous (no IC) → treat ambiguous as IC
+  //   two ambiguous, nothing else     → first = IC, second = phone
+  //   single ambiguous only           → skip (cannot safely determine role)
+  const runAgeFilteredExtraction = (rawData, minA, maxA) => {
+    const extracted = []
+    let rowsScanned = 0, rowsWithIC = 0, rowsMatched = 0
+
+    rawData.forEach(row => {
+      if (!row || row.length === 0) return
+      rowsScanned++
+
+      const ics = [], phones = [], ambiguous = []
+
+      row.forEach(cell => {
+        if (!cell) return
+        const cellStr = String(cell)
+        const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
+        normalized.split(',').forEach(part => {
+          const result = classifyNumber(part.trim())
+          if (!result) return
+          if (result.type === 'ic')        ics.push(result.value)
+          else if (result.type === 'phone')     phones.push(result.value)
+          else if (result.type === 'ambiguous') ambiguous.push(result)
+        })
+      })
+
+      // Resolve which number is IC and which is phone for this row
+      let icStr = null, phoneStr = null
+      if (ics.length > 0 && phones.length > 0) {
+        icStr = ics[0]; phoneStr = phones[0]
+      } else if (ics.length > 0 && phones.length === 0 && ambiguous.length > 0) {
+        icStr = ics[0]; phoneStr = ambiguous[0].phoneValue
+      } else if (phones.length > 0 && ics.length === 0 && ambiguous.length > 0) {
+        icStr = ambiguous[0].icValue; phoneStr = phones[0]
+      } else if (ics.length === 0 && phones.length === 0 && ambiguous.length >= 2) {
+        icStr = ambiguous[0].icValue; phoneStr = ambiguous[1].phoneValue
+      }
+      // ambiguous.length === 1 with nothing else → unresolvable, skip
+
+      if (!icStr || !phoneStr) return
+      rowsWithIC++
+
+      const age = extractAge(icStr)
+      if (age < minA || age > maxA) return
+      rowsMatched++
+      extracted.push(phoneStr)
+    })
+
+    return { numbers: extracted, rowsScanned, rowsWithIC, rowsMatched }
+  }
+
+  // ── FILE UPLOAD HANDLER ───────────────────────────────────────────────────
   const handleFileUpload = async (e) => {
-    const file = e.target.files[0]; if (!file) return; setUploadStatus("Scanning document...");
+    const file = e.target.files[0]; if (!file) return; setUploadStatus('Scanning document...')
     try {
       const XLSX = await import('xlsx')
-      const reader = new FileReader();
+      const reader = new FileReader()
       reader.onload = (evt) => {
         try {
-          const workbook = XLSX.read(evt.target.result, { type: 'binary' }); 
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          let extracted = [];
-        
-        rawData.forEach(row => {
-          row.forEach(cell => {
-            if (!cell) return;
-            const cellStr = String(cell);
-            
-            // Normalize separators and custom words to comma
-            const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',');
-            const parts = normalized.split(',');
-            
-            parts.forEach(part => {
-              let clean = part.replace(/\D/g, '');
-              if (!clean) return;
-              
-              if (clean.startsWith('0060')) clean = clean.substring(2);
-              
-              if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) {
-                clean = '60' + clean;
-              } else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) {
-                clean = '6' + clean;
+          const workbook = XLSX.read(evt.target.result, { type: 'binary' })
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+
+          if (extractMode === 'all') {
+            // ── Mode A ────────────────────────────────────────────────────
+            const extracted = runAllNumbersExtraction(rawData)
+            const uniqueNumbers = [...new Set(extracted)]
+            if (uniqueNumbers.length > 10000) {
+              setValidNumbers([])
+              setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`)
+            } else {
+              setValidNumbers(uniqueNumbers)
+              if (uniqueNumbers.length > 0) setUploadStatus(`Found ${uniqueNumbers.length} valid numbers.`)
+              else setUploadStatus('No valid mobile numbers found.')
+            }
+          } else {
+            // ── Mode B ────────────────────────────────────────────────────
+            const { numbers, rowsScanned, rowsWithIC, rowsMatched } = runAgeFilteredExtraction(rawData, minAge, maxAge)
+            const uniqueNumbers = [...new Set(numbers)]
+            if (uniqueNumbers.length > 10000) {
+              setValidNumbers([])
+              setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`)
+            } else {
+              setValidNumbers(uniqueNumbers)
+              if (uniqueNumbers.length > 0) {
+                setUploadStatus(`✅ ${rowsScanned} rows scanned → ${rowsWithIC} had a valid IC → ${rowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`)
+              } else {
+                setUploadStatus(`No numbers found. Scanned ${rowsScanned} rows, ${rowsWithIC} had ICs, but none matched age ${minAge}–${maxAge}.`)
               }
-              
-              if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) {
-                extracted.push(clean);
-              }
-            });
-          });
-        });
-        const uniqueNumbers = [...new Set(extracted)];
-        
-        if (uniqueNumbers.length > 10000) {
-          setValidNumbers([]);
-          setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`);
-        } else {
-          setValidNumbers(uniqueNumbers);
-          if (uniqueNumbers.length > 0) setUploadStatus(`Found ${uniqueNumbers.length} valid numbers.`);
-          else setUploadStatus("No valid mobile numbers found.");
-        }
-      } catch { setUploadStatus("Error reading file."); }
-    };
-    reader.readAsBinaryString(file);
-    } catch { setUploadStatus("Error reading file."); }
+            }
+          }
+        } catch { setUploadStatus('Error reading file.') }
+      }
+      reader.readAsBinaryString(file)
+    } catch { setUploadStatus('Error reading file.') }
   }
 
   const handleUploadToDatabase = async () => {
@@ -474,10 +589,77 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Target Database Set</label>
               <select value={uploadSet} onChange={(e) => setUploadSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Database: Set A</option><option value="Set B">Database: Set B</option><option value="Set C">Database: Set C</option></select>
             </div>
+            {/* ── Extract Mode Picker ── */}
+            <div>
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Extract Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+
+                {/* Mode A — default */}
+                <button
+                  onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); document.getElementById('file-upload-input').value = '' }}
+                  className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                    extractMode === 'all' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
+                  }`}
+                >
+                  <p className={`font-black text-sm mb-1 ${extractMode === 'all' ? 'text-indigo-900' : 'text-gray-700'}`}>All Numbers</p>
+                  <p className={`text-[11px] leading-snug ${extractMode === 'all' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    Grabs every valid phone number in the file. Age is not considered. Fastest and most inclusive.
+                  </p>
+                </button>
+
+                {/* Mode B — optional, age-filtered */}
+                <button
+                  onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); document.getElementById('file-upload-input').value = '' }}
+                  className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                    extractMode === 'age' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
+                  }`}
+                >
+                  <p className={`font-black text-sm mb-1 flex items-center gap-1.5 ${extractMode === 'age' ? 'text-indigo-900' : 'text-gray-700'}`}>
+                    By Age Range
+                    <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wide">New</span>
+                  </p>
+                  <p className={`text-[11px] leading-snug ${extractMode === 'age' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    Reads the IC on each row to filter by age. Both IC and phone must exist on the same row.
+                  </p>
+                </button>
+
+              </div>
+
+              {/* Age range inputs — only visible in Mode B */}
+              {extractMode === 'age' && (
+                <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-xs text-amber-800 font-bold mb-3">⚠️ Rows without a recognisable Malaysian IC will be skipped entirely.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 mb-1.5 uppercase tracking-wider">Min Age</label>
+                      <input
+                        type="number" value={minAge} min="1" max="100"
+                        onChange={e => setMinAge(parseInt(e.target.value) || 0)}
+                        className="w-full p-2.5 border border-amber-200 rounded-xl text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 mb-1.5 uppercase tracking-wider">Max Age</label>
+                      <input
+                        type="number" value={maxAge} min="1" max="100"
+                        onChange={e => setMaxAge(parseInt(e.target.value) || 0)}
+                        className="w-full p-2.5 border border-amber-200 rounded-xl text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── File Upload ── */}
             <div>
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Upload Messy Spreadsheet</label>
               <input id="file-upload-input" type="file" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded-xl bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-              <p className="text-xs text-indigo-600/80 mt-3 font-medium">Auto-scans all cells, ignores text, fixes country codes, and removes duplicates.</p>
+              <p className="text-xs text-indigo-600/80 mt-3 font-medium">
+                {extractMode === 'all'
+                  ? 'Auto-scans all cells, ignores text, fixes country codes, and removes duplicates.'
+                  : 'Scans row-by-row. Each row must have both a valid Malaysian IC and a phone number on the same row.'}
+              </p>
             </div>
             <div className="mt-auto pt-4">
               {validNumbers.length > 0 ? (
