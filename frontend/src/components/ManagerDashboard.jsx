@@ -822,45 +822,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🗑️</span>
-              <h2 className="text-xl font-bold text-red-900">Cold Storage</h2>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days assigned to your team.</p>
-            {archiveStatus && <p className="text-xs font-bold text-red-600 mb-4 animate-pulse">{archiveStatus}</p>}
-          </div>
-          <button 
-            onClick={handleArchiveDeadLeads} 
-            disabled={isArchiving} 
-            className="w-full bg-red-600 py-3 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10"
-          >
-            {isArchiving ? "Incinerating..." : "Archive Dead Leads"}
-          </button>
-        </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gray-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="bg-gray-100 text-gray-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🛡️</span>
-              <h2 className="text-xl font-bold text-gray-900">Data Quality</h2>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">You have <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} invalid leads</span> in your team's pool. Purge them to keep your database clean.</p>
-            {purgeStatus && <p className="text-xs font-bold text-gray-600 mb-4 animate-pulse">{purgeStatus}</p>}
-          </div>
-          <button 
-            onClick={handlePurgeInvalidLeads} 
-            disabled={isPurging} 
-            className="w-full bg-gray-800 py-3 text-white font-bold rounded-xl hover:bg-gray-900 shadow-sm transition disabled:opacity-50 relative z-10"
-          >
-            {isPurging ? "Purging..." : "Purge Invalid leads"}
-          </button>
-        </div>
-      </div>
     </div>
   )
 
