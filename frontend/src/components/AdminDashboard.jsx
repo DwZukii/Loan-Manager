@@ -32,6 +32,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [transferStatus, setTransferStatus] = useState('')
   const [archiveStatus, setArchiveStatus] = useState('')
   const [isArchiving, setIsArchiving] = useState(false)
+  const [purgeStatus, setPurgeStatus] = useState('')
+  const [isPurging, setIsPurging] = useState(false)
 
   const [activeLeads, setActiveLeads] = useState([]) 
   const [managersList, setManagersList] = useState([])
@@ -113,7 +115,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       statsMap[agent.email] = {
         email: agent.email,
         manager: agent.manager_email || 'Unassigned',
-        total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0
+        total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0, invalid: 0
       }
     });
 
@@ -129,6 +131,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           if (row.status === 'Thinking') statsMap[row.assigned_to].thinking += Number(row.count)
           if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
           if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
+          if (row.status === 'Invalid Number') statsMap[row.assigned_to].invalid += Number(row.count)
         })
       }
     }
@@ -489,6 +492,39 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     await supabase.from('leads').update({ is_reviewed: true, document_url: null }).eq('id', id);
   }
 
+  const handleDismissAllNotifications = async () => {
+    if (activeLeads.length === 0) return;
+    if (!window.confirm(`Are you sure you want to dismiss ALL ${activeLeads.length} notifications?`)) return;
+    if (!window.confirm("CRITICAL: This will permanently delete ALL associated files and notes for these notifications. Proceed?")) return;
+
+    try {
+      // 1. Identify files to delete
+      const filesToDelete = activeLeads
+        .filter(lead => lead.document_url)
+        .map(lead => lead.document_url.split('/').pop());
+
+      if (filesToDelete.length > 0) {
+        await supabase.storage.from('documents').remove(filesToDelete);
+      }
+
+      // 2. Update database in chunks
+      const leadIds = activeLeads.map(l => l.id);
+      if (leadIds.length > 0) {
+        const updateChunkSize = 500;
+        for (let i = 0; i < leadIds.length; i += updateChunkSize) {
+          await supabase.from('leads')
+            .update({ is_reviewed: true, document_url: null })
+            .in('id', leadIds.slice(i, i + updateChunkSize));
+        }
+      }
+
+      setActiveLeads([]);
+      fetchAdminData();
+    } catch (err) {
+      alert(`Error during bulk dismissal: ${err.message}`);
+    }
+  }
+
   const handleArchiveDeadLeads = async () => {
     if (!window.confirm("WARNING: This will permanently permanently incinerate all 'Rejected' leads older than 30 days and safely delete their associated files from storage. This cannot be undone. Proceed?")) return;
     setIsArchiving(true);
@@ -545,6 +581,45 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       setArchiveStatus(`Error: ${err.message}`);
     }
     setIsArchiving(false);
+  }
+
+  const handlePurgeInvalidLeads = async () => {
+    if (!window.confirm("WARNING: This will permanently delete ALL leads marked as 'Invalid Number' across the entire database. This cannot be undone. Proceed?")) return;
+    setIsPurging(true);
+    setPurgeStatus("Identifying invalid numbers...");
+    
+    try {
+      const { data: invalidLeads, error: fetchError } = await supabase
+        .from('leads')
+        .select('id, document_url')
+        .eq('status', 'Invalid Number');
+        
+      if (fetchError) throw fetchError;
+      if (!invalidLeads || invalidLeads.length === 0) {
+        setPurgeStatus("Database is clean! No invalid numbers found.");
+        setIsPurging(false);
+        return;
+      }
+      
+      setPurgeStatus(`Found ${invalidLeads.length} invalid leads. Sweeping files...`);
+      const filesToDelete = invalidLeads.filter(lead => lead.document_url).map(lead => lead.document_url.split('/').pop());
+      if (filesToDelete.length > 0) await supabase.storage.from('documents').remove(filesToDelete);
+      
+      setPurgeStatus(`Files purged. Removing ${invalidLeads.length} leads...`);
+      const idsToPurge = invalidLeads.map(lead => lead.id);
+      const deleteChunkSize = 500;
+      for (let i = 0; i < idsToPurge.length; i += deleteChunkSize) {
+        const { error: deleteError } = await supabase.from('leads').delete().in('id', idsToPurge.slice(i, i + deleteChunkSize));
+        if (deleteError) throw deleteError;
+        setPurgeStatus(`Removing... ${Math.min(i + deleteChunkSize, idsToPurge.length)} / ${idsToPurge.length}`);
+      }
+      
+      setPurgeStatus(`✅ Success! Permanently purged ${idsToPurge.length} invalid leads.`);
+      fetchAdminData();
+    } catch (err) {
+      setPurgeStatus(`Error: ${err.message}`);
+    }
+    setIsPurging(false);
   }
 
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
@@ -730,7 +805,20 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-amber-200 mt-6 relative overflow-hidden flex flex-col">
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
-        <h2 className="text-2xl font-bold text-amber-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0">🔔</span> Global Activity Feed</h2>
+        <div className="flex justify-between items-center mb-6 relative z-10">
+          <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
+            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0">🔔</span> 
+            Global Activity Feed
+          </h2>
+          {activeLeads.length > 0 && (
+            <button 
+              onClick={handleDismissAllNotifications}
+              className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-xl hover:bg-amber-200 transition text-sm border border-amber-200"
+            >
+              Dismiss All ({activeLeads.length})
+            </button>
+          )}
+        </div>
         {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10">No active notes or files to review.</p> : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 relative z-10">
             {activeLeads.map(lead => (
@@ -749,23 +837,42 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         )}
       </div>
       
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 mt-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
-        <div className="flex flex-col md:flex-row md:items-center justify-between relative z-10 gap-6">
-          <div className="flex items-start gap-4">
-            <span className="bg-red-100 text-red-700 rounded-full w-12 h-12 flex items-center justify-center text-2xl shadow-sm flex-shrink-0">🗑️</span>
-            <div>
-              <h2 className="text-xl font-bold text-red-900 mb-1">Cold Storage Garbage Collection</h2>
-              <p className="text-sm text-gray-600">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days to free up database storage and active memory. This automatically sweeps and deletes orphaned attached documents.</p>
-              {archiveStatus && <p className="text-sm font-bold text-red-600 mt-2">{archiveStatus}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🗑️</span>
+              <h2 className="text-xl font-bold text-red-900">Cold Storage</h2>
             </div>
+            <p className="text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days across the system.</p>
+            {archiveStatus && <p className="text-xs font-bold text-red-600 mb-4 animate-pulse">{archiveStatus}</p>}
           </div>
           <button 
             onClick={handleArchiveDeadLeads} 
             disabled={isArchiving} 
-            className="whitespace-nowrap bg-red-600 px-6 py-3 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50"
+            className="w-full bg-red-600 py-3 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10"
           >
             {isArchiving ? "Incinerating..." : "Archive Dead Leads"}
+          </button>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gray-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="bg-gray-100 text-gray-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🛡️</span>
+              <h2 className="text-xl font-bold text-gray-900">Data Quality</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">There are <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} leads</span> marked as invalid. Purge them to maintain database health.</p>
+            {purgeStatus && <p className="text-xs font-bold text-gray-600 mb-4 animate-pulse">{purgeStatus}</p>}
+          </div>
+          <button 
+            onClick={handlePurgeInvalidLeads} 
+            disabled={isPurging} 
+            className="w-full bg-gray-800 py-3 text-white font-bold rounded-xl hover:bg-gray-900 shadow-sm transition disabled:opacity-50 relative z-10"
+          >
+            {isPurging ? "Purging..." : "Purge Invalid Leads"}
           </button>
         </div>
       </div>
@@ -1175,13 +1282,31 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <div className="bg-green-50 rounded-xl p-4 border border-green-100 text-center"><p className="text-xs text-green-600 font-bold uppercase tracking-wide">Accepted</p><p className="text-2xl font-black text-green-700">{p.accepted}</p></div>
               <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 text-center"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wide">Thinking</p><p className="text-2xl font-black text-yellow-700">{p.thinking}</p></div>
               <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center"><p className="text-xs text-red-600 font-bold uppercase tracking-wide">Rejected</p><p className="text-2xl font-black text-red-700">{p.rejected}</p></div>
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Invalid</p><p className="text-2xl font-black text-gray-800">{p.invalid}</p></div>
             </div>
-            <div className="mt-6"><div className="flex justify-between text-sm font-bold text-gray-700 mb-2"><span>Progress</span><span className="text-blue-600">{p.total - p.pending} / {p.total} Actioned</span></div><div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-blue-500 h-3 rounded-full" style={{ width: `${percentDone}%` }}></div></div></div>
+            <div className="mt-6">
+              <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                <span>Progress</span>
+                <span className="text-blue-600">{p.total - p.pending - (p.invalid || 0)} / {p.total - (p.invalid || 0)} Actioned</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-3">
+                <div className="bg-blue-500 h-3 rounded-full" style={{ width: `${Math.round(((p.total - p.pending - (p.invalid || 0)) / (p.total - (p.invalid || 0) || 1)) * 100)}%` }}></div>
+              </div>
+            </div>
           </div>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h3 className="text-xl font-bold text-gray-800">Assigned Numbers</h3>
-              <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="All">Show All Leads</option><option value="Pending">Pending Only</option><option value="Called (No Answer)">Called Only</option><option value="WhatsApp Sent">WhatsApp Only</option><option value="Accepted">Accepted Only</option><option value="Thinking">Thinking Only</option><option value="Rejected">Rejected Only</option></select>
+              <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="All">Show All Leads</option>
+                <option value="Pending">Pending Only</option>
+                <option value="Called (No Answer)">Called Only</option>
+                <option value="WhatsApp Sent">WhatsApp Only</option>
+                <option value="Accepted">Accepted Only</option>
+                <option value="Thinking">Thinking Only</option>
+                <option value="Rejected">Rejected Only</option>
+                <option value="Invalid Number">Invalid Only</option>
+              </select>
             </div>
             {isProfileLoading ? <p className="text-gray-500 text-center py-8">Loading leads...</p> : filteredProfileLeads.length === 0 ? <p className="text-gray-500 text-center py-8">No numbers found for this filter.</p> : (
               <>

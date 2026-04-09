@@ -168,8 +168,9 @@ Balas *“YA”* untuk semakan 🆓
   const acceptedCount = leads.filter(l => l.status === 'Accepted').length; 
   const thinkingCount = leads.filter(l => l.status === 'Thinking').length; 
   const rejectedCount = leads.filter(l => l.status === 'Rejected').length;
-  const callsMade = totalLeads - pendingCount; 
-  const progressPercent = Math.round((callsMade / totalLeads) * 100) || 0;
+  const invalidCount = leads.filter(l => l.status === 'Invalid Number').length;
+  const callsMade = totalLeads - pendingCount - invalidCount; 
+  const progressPercent = Math.round((callsMade / (totalLeads - invalidCount)) * 100) || 0;
 
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
 
@@ -284,6 +285,7 @@ Balas *“YA”* untuk semakan 🆓
                   <option value="Accepted">Accepted</option>
                   <option value="Thinking">Thinking</option>
                   <option value="Rejected">Rejected</option>
+                  <option value="Invalid Number">Invalid Number</option>
                 </select>
               </div>
               
@@ -347,6 +349,7 @@ Balas *“YA”* untuk semakan 🆓
       case 'Rejected': return 'border-l-4 border-red-400 bg-red-50/30'; 
       case 'Called (No Answer)': return 'border-l-4 border-blue-400 bg-blue-50/30'; 
       case 'WhatsApp Sent': return 'border-l-4 border-purple-400 bg-purple-50/30'; 
+      case 'Invalid Number': return 'border-l-4 border-gray-400 bg-gray-50 opacity-75';
       default: return 'border-l-4 border-gray-300 bg-white' 
     }
   }
@@ -365,6 +368,7 @@ Balas *“YA”* untuk semakan 🆓
               <option value="Accepted">Accepted</option>
               <option value="Thinking">Thinking</option>
               <option value="Rejected">Rejected</option>
+              <option value="Invalid Number">Invalid Number</option>
             </select>
           </div>
 
@@ -379,7 +383,13 @@ Balas *“YA”* untuk semakan 🆓
                 <div className="bg-red-50 rounded-xl shadow-sm border border-red-100 p-3 text-center"><p className="text-[10px] text-red-600 font-bold uppercase tracking-wide mb-1 truncate">Rejected</p><p className="text-xl font-black text-red-700">{rejectedCount}</p></div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <div className="flex justify-between text-sm font-bold text-gray-700 mb-2"><span>Total Progress</span><span className="text-blue-600">{callsMade} / {totalLeads} Actioned</span></div>
+                <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                  <span>Total Progress</span>
+                  <div className="flex items-center gap-3">
+                    {invalidCount > 0 && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">{invalidCount} Invalid</span>}
+                    <span className="text-blue-600">{callsMade} / {totalLeads - invalidCount} Actioned</span>
+                  </div>
+                </div>
                 <div className="w-full bg-gray-100 rounded-full h-3"><div className="bg-blue-500 h-3 rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }}></div></div>
               </div>
             </div>
@@ -400,6 +410,7 @@ Balas *“YA”* untuk semakan 🆓
                         <option value="Accepted">Accepted</option>
                         <option value="Thinking">Thinking</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="Invalid Number">Invalid Number</option>
                       </select>
                     </div>
                   </div>
