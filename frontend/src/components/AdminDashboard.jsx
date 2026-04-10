@@ -65,6 +65,26 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const unreadFeedbackCount = allFeedback.filter(f => f.status === 'New').length
 
+  const [showNav, setShowNav] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY < 10) {
+        setShowNav(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setShowNav(false);
+      } else if (currentScrollY < lastScrollY) {
+        setShowNav(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
   const handleFeedbackSubmit = async () => {
     if (!feedbackMessage.trim()) return
     setIsFeedbackSubmitting(true)
@@ -1645,7 +1665,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
       )}
-      <nav style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} className="sticky top-0 z-40 shadow-2xl">
+      <nav 
+        style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+        className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
+      >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
@@ -1673,7 +1696,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         </div>
     </nav>
       {renderBottomNav()}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'data' && renderDataMatrixTab()}
         {activeTab === 'directory' && renderDirectoryTab()}

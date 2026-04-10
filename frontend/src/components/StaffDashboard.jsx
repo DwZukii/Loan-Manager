@@ -26,6 +26,26 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false)
   const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+  
+  const [showNav, setShowNav] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY < 10) {
+        setShowNav(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setShowNav(false);
+      } else if (currentScrollY < lastScrollY) {
+        setShowNav(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackMessage.trim()) return
@@ -253,7 +273,10 @@ Balas *“YA”* untuk semakan 🆓
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
 
   const renderNav = () => (
-    <nav style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} className="sticky top-0 z-40 shadow-2xl">
+    <nav 
+      style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+      className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
+    >
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
@@ -298,7 +321,7 @@ Balas *“YA”* untuk semakan 🆓
 
   if (activeTab === 'tutorial') return (
     <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
+      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <h2 className="text-3xl font-extrabold text-gray-900 mb-6">How to use Tele Manager</h2>
           <p className="text-gray-600 mb-8 text-lg">Welcome to your workspace. Follow these simple steps to manage your daily leads effectively.</p>
@@ -328,7 +351,7 @@ Balas *“YA”* untuk semakan 🆓
 
   if (activeTab === 'manual') return (
     <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
+      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900">Submit External Lead</h2>
@@ -367,7 +390,7 @@ Balas *“YA”* untuk semakan 🆓
 
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-        <div className="flex-1 p-4 sm:p-8 pb-24 md:pb-8 animate-in slide-in-from-right-8 duration-300">
+        <div className="flex-1 p-4 sm:p-8 pb-44 md:pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
             <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
@@ -454,7 +477,7 @@ Balas *“YA”* untuk semakan 🆓
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 p-4 sm:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
+      <div className="flex-1 p-4 sm:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">My Leads</h1>
