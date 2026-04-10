@@ -21,6 +21,84 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [manualFile, setManualFile] = useState(null)
   const [isManualSaving, setIsManualSaving] = useState(false)
 
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
+  const [feedbackType, setFeedbackType] = useState('Bug')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackMessage.trim()) return
+    setIsFeedbackSubmitting(true)
+    try {
+      const { error } = await supabase.from('feedback').insert([{
+        user_email: userEmail,
+        user_role: 'agent',
+        type: feedbackType,
+        message: feedbackMessage
+      }])
+      if (error) throw error
+      setFeedbackSuccess(true)
+      setTimeout(() => {
+        setFeedbackSuccess(false)
+        setIsFeedbackModalOpen(false)
+        setFeedbackMessage('')
+        setFeedbackType('Bug')
+      }, 2000)
+    } catch (error) {
+      alert("Error submitting feedback: " + error.message)
+    } finally {
+      setIsFeedbackSubmitting(false)
+    }
+  }
+
+  const renderFeedbackModal = () => (
+    <>
+      <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-50 bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
+        <span className="text-xl">🐞</span>
+        <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
+      </button>
+
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFeedbackModalOpen(false)}></div>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
+            <div className="border-b border-gray-100 p-6 bg-slate-50">
+              <h3 className="text-xl font-extrabold text-slate-800">Submit Feedback</h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">Found a bug or have a suggestion? Let us know.</p>
+            </div>
+            {feedbackSuccess ? (
+              <div className="p-8 text-center bg-white flex flex-col items-center justify-center space-y-3">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mb-2">✅</div>
+                <h4 className="text-xl font-bold text-slate-800">Received!</h4>
+                <p className="text-slate-500 font-medium">Thanks for helping us improve.</p>
+              </div>
+            ) : (
+              <div className="p-6 bg-white space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
+                  <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="Bug">🐞 Report a Bug</option>
+                    <option value="Suggestion">💡 Suggestion</option>
+                    <option value="Other">💬 Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Cancel</button>
+                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
   const promoScript = `Salam sejahtera,
 
 Minta maaf ganggu masa tn/pn 🙏🏻,
@@ -193,17 +271,34 @@ Balas *“YA”* untuk semakan 🆓
           <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
         </div>
       </div>
-      <div className="md:hidden flex px-4 pb-2 gap-1.5 overflow-x-auto pt-1" style={{background: 'rgba(0,0,0,0.2)'}}>
-        <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>My Leads</button>
-        <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Manual Entry</button>
-        <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Tutorial</button>
+    </nav>
+  )
+
+  const renderBottomNav = () => (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(165,180,252,0.2)'}}>
+      <div className="flex h-16">
+        <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'leads' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'leads' ? 'scale-110' : ''}`}>📋</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'leads' ? 'text-white' : 'text-indigo-400'}`}>My Leads</span>
+          {activeTab === 'leads' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'manual' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'manual' ? 'scale-110' : ''}`}>✍️</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'manual' ? 'text-white' : 'text-indigo-400'}`}>Manual</span>
+          {activeTab === 'manual' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'tutorial' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'tutorial' ? 'scale-110' : ''}`}>📖</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'tutorial' ? 'text-white' : 'text-indigo-400'}`}>Tutorial</span>
+          {activeTab === 'tutorial' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
       </div>
     </nav>
   )
 
   if (activeTab === 'tutorial') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
+      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <h2 className="text-3xl font-extrabold text-gray-900 mb-6">How to use Tele Manager</h2>
           <p className="text-gray-600 mb-8 text-lg">Welcome to your workspace. Follow these simple steps to manage your daily leads effectively.</p>
@@ -227,12 +322,13 @@ Balas *“YA”* untuk semakan 🆓
           </div>
         </div>
       </div>
+      {renderFeedbackModal()}
     </div>
   )
 
   if (activeTab === 'manual') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
+      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900">Submit External Lead</h2>
@@ -261,16 +357,17 @@ Balas *“YA”* untuk semakan 🆓
           </div>
         </div>
       </div>
+      {renderFeedbackModal()}
     </div>
   )
 
-  if (selectedLead) {
+  if (selectedLead && activeTab === 'leads') {
     const currentLead = leads.find(l => l.id === selectedLead.id); 
     const whatsappLink = `https://wa.me/${currentLead.phone_number}`
 
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-        <div className="flex-1 p-4 sm:p-8 animate-in slide-in-from-right-8 duration-300">
+      <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
+        <div className="flex-1 p-4 sm:p-8 pb-24 md:pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
             <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
@@ -334,6 +431,7 @@ Balas *“YA”* untuk semakan 🆓
             </div>
           </div>
         </div>
+        {renderFeedbackModal()}
       </div>
     )
   }
@@ -355,8 +453,8 @@ Balas *“YA”* untuk semakan 🆓
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      <div className="flex-1 p-4 sm:p-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
+      <div className="flex-1 p-4 sm:p-8 pb-24 md:pb-8 animate-in fade-in duration-500">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">My Leads</h1>
@@ -431,6 +529,7 @@ Balas *“YA”* untuk semakan 🆓
           )}
         </div>
       </div>
+      {renderFeedbackModal()}
     </div>
   )
 }

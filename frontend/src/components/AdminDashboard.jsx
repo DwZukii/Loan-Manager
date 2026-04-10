@@ -56,6 +56,52 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [profilePage, setProfilePage] = useState(1)
   const profileLeadsPerPage = 10
 
+  const [allFeedback, setAllFeedback] = useState([])
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
+  const [feedbackType, setFeedbackType] = useState('Bug')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
+  const unreadFeedbackCount = allFeedback.filter(f => f.status === 'New').length
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackMessage.trim()) return
+    setIsFeedbackSubmitting(true)
+    try {
+      const { error } = await supabase.from('feedback').insert([{
+        user_email: userEmail,
+        user_role: userRole,
+        type: feedbackType,
+        message: feedbackMessage
+      }])
+      if (error) throw error
+      setFeedbackSuccess(true)
+      setTimeout(() => {
+        setFeedbackSuccess(false)
+        setIsFeedbackModalOpen(false)
+        setFeedbackMessage('')
+        setFeedbackType('Bug')
+      }, 2000)
+    } catch (error) {
+      alert("Error submitting feedback: " + error.message)
+    } finally {
+      setIsFeedbackSubmitting(false)
+    }
+  }
+
+  const handleFeedbackStatusChange = async (id, newStatus) => {
+    setAllFeedback(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f))
+    await supabase.from('feedback').update({ status: newStatus }).eq('id', id)
+  }
+
+  const handleDeleteFeedback = async (id) => {
+    if (window.confirm("Delete this report?")) {
+      setAllFeedback(prev => prev.filter(f => f.id !== id))
+      await supabase.from('feedback').delete().eq('id', id)
+    }
+  }
+
   const fetchAdminData = useCallback(async () => {
     const { data: profilesData } = await supabase.from('profiles').select('*')
     if (profilesData) {
@@ -156,6 +202,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         setActiveLeads(workedOnLeads)
       }
     }
+
+    const { data: feedbackData } = await supabase.from('feedback').select('*').order('created_at', { ascending: false });
+    if (feedbackData) setAllFeedback(feedbackData);
+
   }, [userRole, userEmail])
 
   useEffect(() => { fetchAdminData() }, [fetchAdminData])
@@ -902,10 +952,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   };
 
   const renderDataMatrixTab = () => {
+    // Total stats for header (removed unused totalCalled)
     const totalLeads = agentStats.reduce((s, a) => s + a.total, 0);
     const totalAccepted = agentStats.reduce((s, a) => s + a.accepted, 0);
     const totalPending = agentStats.reduce((s, a) => s + a.pending, 0);
-    const totalCalled = agentStats.reduce((s, a) => s + a.called, 0);
     const acceptRate = totalLeads > 0 ? ((totalAccepted / totalLeads) * 100).toFixed(1) : '0.0';
     return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1319,7 +1369,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   if (selectedAgentProfile) {
     const p = selectedAgentProfile
-    const percentDone = Math.round((p.called / p.total) * 100) || 0
+    // Removed unused percentDone
     const filteredProfileLeads = agentProfileLeads.filter(lead => profileFilter === 'All' ? true : lead.status === profileFilter)
     const currentProfileLeads = filteredProfileLeads.slice((profilePage - 1) * profileLeadsPerPage, profilePage * profileLeadsPerPage)
     const totalProfilePages = Math.ceil(filteredProfileLeads.length / profileLeadsPerPage)
@@ -1391,6 +1441,153 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     )
   }
 
+  const renderFeedbackTab = () => {
+    return (
+      <div className="animate-in fade-in duration-500 max-w-6xl mx-auto space-y-6">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+          <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-3xl font-extrabold text-indigo-900 tracking-tight">Feedback Center</h2>
+              <p className="text-gray-500 font-medium mt-2">Manage bug reports and suggestions from your team.</p>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-y border-slate-200">
+                  <th className="p-4 font-bold text-slate-600 text-sm">Date</th>
+                  <th className="p-4 font-bold text-slate-600 text-sm">User</th>
+                  <th className="p-4 font-bold text-slate-600 text-sm">Type</th>
+                  <th className="p-4 font-bold text-slate-600 text-sm w-1/3">Message</th>
+                  <th className="p-4 font-bold text-slate-600 text-sm text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allFeedback.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-500 font-bold">No feedback received yet.</td></tr> : allFeedback.map(fb => (
+                  <tr key={fb.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 text-sm text-slate-500 font-medium whitespace-nowrap">{new Date(fb.created_at).toLocaleDateString()}</td>
+                    <td className="p-4">
+                      <div className="font-bold text-slate-800">{fb.user_email}</div>
+                      <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{fb.user_role}</div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold leading-none ${fb.type === 'Bug' ? 'bg-rose-100 text-rose-700' : fb.type === 'Suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'}`}>
+                        {fb.type === 'Bug' ? '🐞 Bug' : fb.type === 'Suggestion' ? '💡 Suggestion' : '💬 Other'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm text-slate-700 font-medium leading-relaxed">
+                      {fb.message}
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <select 
+                          value={fb.status} 
+                          onChange={(e) => handleFeedbackStatusChange(fb.id, e.target.value)}
+                          className={`text-sm font-bold rounded-lg px-3 py-1.5 border text-right cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${fb.status === 'Resolved' ? 'bg-green-50 border-green-200 text-green-700' : fb.status === 'In Progress' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
+                        >
+                          <option value="New">🚨 New</option>
+                          <option value="In Progress">⏳ In Progress</option>
+                          <option value="Resolved">✅ Resolved</option>
+                        </select>
+                        {userRole === 'super_admin' && (
+                          <button 
+                            onClick={() => handleDeleteFeedback(fb.id)} 
+                            className="bg-white border border-red-200 text-red-600 font-bold px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 transition"
+                            title="Delete Report"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderFeedbackModal = () => (
+    <>
+      <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-[60] bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
+        <span className="text-xl">🐞</span>
+        <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
+      </button>
+
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFeedbackModalOpen(false)}></div>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
+            <div className="border-b border-gray-100 p-6 bg-slate-50">
+              <h3 className="text-xl font-extrabold text-slate-800">Submit Feedback</h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">Found a bug or have a suggestion? Let us know.</p>
+            </div>
+            {feedbackSuccess ? (
+              <div className="p-8 text-center bg-white flex flex-col items-center justify-center space-y-3">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mb-2">✅</div>
+                <h4 className="text-xl font-bold text-slate-800">Received!</h4>
+                <p className="text-slate-500 font-medium">Thanks for helping us improve.</p>
+              </div>
+            ) : (
+              <div className="p-6 bg-white space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
+                  <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="Bug">🐞 Report a Bug</option>
+                    <option value="Suggestion">💡 Suggestion</option>
+                    <option value="Other">💬 Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Cancel</button>
+                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  const renderBottomNav = () => (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(165,180,252,0.2)'}}>
+      <div className="flex h-16">
+        <button onClick={() => setActiveTab('overview')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'overview' ? 'scale-110' : ''}`}>🎯</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400'}`}>Command</span>
+          {activeTab === 'overview' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => setActiveTab('data')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'data' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'data' ? 'scale-110' : ''}`}>📊</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'data' ? 'text-white' : 'text-indigo-400'}`}>Matrix</span>
+          {activeTab === 'data' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => setActiveTab('directory')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'directory' ? 'scale-110' : ''}`}>📒</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400'}`}>Directory</span>
+          {activeTab === 'directory' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => setActiveTab('feedback')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'feedback' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <div className="relative">
+            <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'feedback' ? 'scale-110' : ''}`}>🐞</span>
+            {unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-2 bg-rose-500 text-white rounded-full h-3 min-w-[12px] flex items-center justify-center text-[8px] font-black">{unreadFeedbackCount}</span>}
+          </div>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'feedback' ? 'text-white' : 'text-indigo-400'}`}>Hub</span>
+          {activeTab === 'feedback' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+      </div>
+    </nav>
+  )
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-x-hidden">
       {isNotifPanelOpen && (
@@ -1459,6 +1656,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Command Center</button>
               <button onClick={() => setActiveTab('data')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
               <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
+              <button onClick={() => setActiveTab('feedback')} className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>
+                Feedback
+                {unreadFeedbackCount > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black">{unreadFeedbackCount}</span>}
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1470,17 +1671,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
           </div>
         </div>
-        <div className="md:hidden flex px-4 pb-2 gap-1.5 overflow-x-auto pt-1" style={{background: 'rgba(0,0,0,0.2)'}}>
-          <button onClick={() => setActiveTab('overview')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Command Center</button>
-          <button onClick={() => setActiveTab('data')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Global Matrix</button>
-          <button onClick={() => setActiveTab('directory')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Directory</button>
-        </div>
-      </nav>
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8">
+    </nav>
+      {renderBottomNav()}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'data' && renderDataMatrixTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
+        {activeTab === 'feedback' && renderFeedbackTab()}
       </main>
+      {renderFeedbackModal()}
     </div>
   )
 }

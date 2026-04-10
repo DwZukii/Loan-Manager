@@ -32,10 +32,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [accCreateStatus, setAccCreateStatus] = useState('')
   const [showNewAccPassword, setShowNewAccPassword] = useState(false)
 
-  const [archiveStatus, setArchiveStatus] = useState('')
-  const [isArchiving, setIsArchiving] = useState(false)
-  const [purgeStatus, setPurgeStatus] = useState('')
-  const [isPurging, setIsPurging] = useState(false)
 
   const [selectedAgentProfile, setSelectedAgentProfile] = useState(null)
   const [agentProfileLeads, setAgentProfileLeads] = useState([])
@@ -43,6 +39,37 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [profileFilter, setProfileFilter] = useState('All')
   const [profilePage, setProfilePage] = useState(1)
   const profileLeadsPerPage = 10
+
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
+  const [feedbackType, setFeedbackType] = useState('Bug')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackMessage.trim()) return
+    setIsFeedbackSubmitting(true)
+    try {
+      const { error } = await supabase.from('feedback').insert([{
+        user_email: userEmail,
+        user_role: userRole,
+        type: feedbackType,
+        message: feedbackMessage
+      }])
+      if (error) throw error
+      setFeedbackSuccess(true)
+      setTimeout(() => {
+        setFeedbackSuccess(false)
+        setIsFeedbackModalOpen(false)
+        setFeedbackMessage('')
+        setFeedbackType('Bug')
+      }, 2000)
+    } catch (error) {
+      alert("Error submitting feedback: " + error.message)
+    } finally {
+      setIsFeedbackSubmitting(false)
+    }
+  }
 
   const fetchManagerData = useCallback(async () => {
     const { data: profilesData } = await supabase.from('profiles').select('*')
@@ -512,104 +539,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); fetchManagerData() }
   }
 
-  const handleArchiveDeadLeads = async () => {
-    if (!window.confirm("WARNING: This will permanently incinerate all 'Rejected' leads older than 30 days assigned to your team. This cannot be undone. Proceed?")) return;
-    setIsArchiving(true);
-    setArchiveStatus("Scanning for dead leads...");
-    
-    try {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const cutoffDate = thirtyDaysAgo.toISOString();
-
-      // Fetch rejected leads for my team
-      let teamFilter = `pool_owner.eq.${userEmail}`;
-      if (myTeamEmails.length > 0) {
-        teamFilter += `,assigned_to.in.(${myTeamEmails.join(',')})`;
-      }
-
-      const { data: deadLeads, error: fetchError } = await supabase
-        .from('leads')
-        .select('id, document_url')
-        .eq('status', 'Rejected')
-        .lt('created_at', cutoffDate)
-        .or(teamFilter);
-        
-      if (fetchError) throw fetchError;
-      if (!deadLeads || deadLeads.length === 0) {
-        setArchiveStatus("Your team's storage is clean! No dead leads found.");
-        setIsArchiving(false);
-        return;
-      }
-      
-      setArchiveStatus(`Found ${deadLeads.length} dead leads. Sweeping files...`);
-      const filesToDelete = deadLeads.filter(lead => lead.document_url).map(lead => lead.document_url.split('/').pop());
-      if (filesToDelete.length > 0) await supabase.storage.from('documents').remove(filesToDelete);
-      
-      setArchiveStatus(`Files purged. Incinerating ${deadLeads.length} rows...`);
-      const deadIds = deadLeads.map(lead => lead.id);
-      const deleteChunkSize = 500;
-      for (let i = 0; i < deadIds.length; i += deleteChunkSize) {
-        const { error: deleteError } = await supabase.from('leads').delete().in('id', deadIds.slice(i, i + deleteChunkSize));
-        if (deleteError) throw deleteError;
-        setArchiveStatus(`Incinerating... ${Math.min(i + deleteChunkSize, deadIds.length)} / ${deadIds.length} rows`);
-      }
-      
-      setArchiveStatus(`✅ Success! Permanently incinerated ${deadLeads.length} dead leads.`);
-      fetchManagerData();
-    } catch (err) {
-      setArchiveStatus(`Error: ${err.message}`);
-    }
-    setIsArchiving(false);
-  }
-
-  const handlePurgeInvalidLeads = async () => {
-    if (!window.confirm("WARNING: This will permanently delete ALL 'Invalid Number' leads assigned to your team. Proceed?")) return;
-    setIsPurging(true);
-    setPurgeStatus("Identifying invalid numbers...");
-    
-    try {
-      // Fetch invalid leads for my team
-      let teamFilter = `pool_owner.eq.${userEmail}`;
-      if (myTeamEmails.length > 0) {
-        teamFilter += `,assigned_to.in.(${myTeamEmails.join(',')})`;
-      }
-
-      const { data: invalidLeads, error: fetchError } = await supabase
-        .from('leads')
-        .select('id, document_url')
-        .eq('status', 'Invalid Number')
-        .or(teamFilter);
-        
-      if (fetchError) throw fetchError;
-      if (!invalidLeads || invalidLeads.length === 0) {
-        setPurgeStatus("No invalid numbers found in your team's pool.");
-        setIsPurging(false);
-        return;
-      }
-      
-      setPurgeStatus(`Found ${invalidLeads.length} invalid leads. Purging...`);
-      const idsToPurge = invalidLeads.map(lead => lead.id);
-      
-      // Delete any files first
-      const filesToDelete = invalidLeads.filter(lead => lead.document_url).map(lead => lead.document_url.split('/').pop());
-      if (filesToDelete.length > 0) await supabase.storage.from('documents').remove(filesToDelete);
-
-      const deleteChunkSize = 500;
-      for (let i = 0; i < idsToPurge.length; i += deleteChunkSize) {
-        const { error: deleteError } = await supabase.from('leads').delete().in('id', idsToPurge.slice(i, i + deleteChunkSize));
-        if (deleteError) throw deleteError;
-        setPurgeStatus(`Purging... ${Math.min(i + deleteChunkSize, idsToPurge.length)} / ${idsToPurge.length} leads`);
-      }
-      
-      setPurgeStatus(`✅ Success! Permanently purged ${idsToPurge.length} invalid leads.`);
-      fetchManagerData();
-    } catch (err) {
-      setPurgeStatus(`Error: ${err.message}`);
-    }
-    setIsPurging(false);
-  }
-
   const renderOverviewTab = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -1075,7 +1004,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
   if (selectedAgentProfile) {
     const p = selectedAgentProfile
-    const percentDone = Math.round((p.called / p.total) * 100) || 0
+    // percentDone unused
     const filteredProfileLeads = agentProfileLeads.filter(lead => profileFilter === 'All' ? true : lead.status === profileFilter)
     const currentProfileLeads = filteredProfileLeads.slice((profilePage - 1) * profileLeadsPerPage, profilePage * profileLeadsPerPage)
     const totalProfilePages = Math.ceil(filteredProfileLeads.length / profileLeadsPerPage)
@@ -1156,6 +1085,75 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       </div>
     )
   }
+
+  const renderFeedbackModal = () => (
+    <>
+      <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-[60] bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
+        <span className="text-xl">🐞</span>
+        <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
+      </button>
+
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFeedbackModalOpen(false)}></div>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
+            <div className="border-b border-gray-100 p-6 bg-slate-50">
+              <h3 className="text-xl font-extrabold text-slate-800">Submit Feedback</h3>
+              <p className="text-sm text-slate-500 font-medium mt-1">Found a bug or have a suggestion? Let us know.</p>
+            </div>
+            {feedbackSuccess ? (
+              <div className="p-8 text-center bg-white flex flex-col items-center justify-center space-y-3">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mb-2">✅</div>
+                <h4 className="text-xl font-bold text-slate-800">Received!</h4>
+                <p className="text-slate-500 font-medium">Thanks for helping us improve.</p>
+              </div>
+            ) : (
+              <div className="p-6 bg-white space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
+                  <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="Bug">🐞 Report a Bug</option>
+                    <option value="Suggestion">💡 Suggestion</option>
+                    <option value="Other">💬 Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Cancel</button>
+                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  const renderBottomNav = () => (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(165,180,252,0.2)'}}>
+      <div className="flex h-16">
+        <button onClick={() => setActiveTab('overview')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'overview' ? 'scale-110' : ''}`}>🎯</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400'}`}>Command</span>
+          {activeTab === 'overview' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => setActiveTab('data')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'data' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'data' ? 'scale-110' : ''}`}>📊</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'data' ? 'text-white' : 'text-indigo-400'}`}>Matrix</span>
+          {activeTab === 'data' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+        <button onClick={() => setActiveTab('directory')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
+          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'directory' ? 'scale-110' : ''}`}>📒</span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400'}`}>Directory</span>
+          {activeTab === 'directory' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
+        </button>
+      </div>
+    </nav>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-x-hidden">
@@ -1259,18 +1257,14 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
           </div>
         </div>
-        <div className="md:hidden flex px-4 pb-2 gap-1.5 overflow-x-auto pt-1" style={{background: 'rgba(0,0,0,0.2)'}}>
-          <button onClick={() => setActiveTab('overview')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Command Center</button>
-          <button onClick={() => setActiveTab('data')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>My Team Matrix</button>
-          <button onClick={() => setActiveTab('directory')} className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-300 hover:bg-white/10'}`}>Directory</button>
-        </div>
-      </nav>
-
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8">
+    </nav>
+      {renderBottomNav()}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-24 md:pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'data' && renderDataMatrixTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
       </main>
+      {renderFeedbackModal()}
     </div>
   )
 }
