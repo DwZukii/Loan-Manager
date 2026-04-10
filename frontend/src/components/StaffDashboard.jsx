@@ -29,6 +29,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   
   const [showNav, setShowNav] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -278,50 +279,87 @@ Balas *“YA”* untuk semakan 🆓
       className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
     >
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-4 sm:gap-8">
+          <div className="lg:hidden -ml-2">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+          </div>
           <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
             <span className="text-white">Tele Manager</span>
             <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest">STAFF</span>
           </h1>
-          <div className="hidden md:flex items-center gap-1 p-1 rounded-xl" style={{background: 'rgba(255,255,255,0.08)'}}>
+          <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl" style={{background: 'rgba(255,255,255,0.08)'}}>
             <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>My Leads</button>
             <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Manual Entry</button>
             <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-indigo-300 hidden sm:block">{userEmail}</span>
+          <span className="text-xs font-semibold text-indigo-300 hidden lg:block">{userEmail}</span>
           <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
         </div>
       </div>
     </nav>
   )
 
-  const renderBottomNav = () => (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(165,180,252,0.2)'}}>
-      <div className="flex h-16">
-        <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'leads' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'leads' ? 'scale-110' : ''}`}>📋</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'leads' ? 'text-white' : 'text-indigo-400'}`}>My Leads</span>
-          {activeTab === 'leads' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-        <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'manual' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'manual' ? 'scale-110' : ''}`}>✍️</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'manual' ? 'text-white' : 'text-indigo-400'}`}>Manual</span>
-          {activeTab === 'manual' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-        <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'tutorial' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'tutorial' ? 'scale-110' : ''}`}>📖</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'tutorial' ? 'text-white' : 'text-indigo-400'}`}>Tutorial</span>
-          {activeTab === 'tutorial' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-      </div>
-    </nav>
-  )
+  const renderMobileMenu = () => {
+    return (
+      <>
+        {/* Backdrop overlay */}
+        <div 
+          className={`fixed inset-0 z-[90] bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+
+        {/* Sidebar Drawer */}
+        <div className={`fixed left-0 top-0 bottom-0 z-[100] w-72 bg-indigo-950/98 backdrop-blur-2xl border-r border-white/10 shadow-2xl transition-transform duration-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
+          <div className="flex items-center justify-between px-6 h-16 border-b border-white/10">
+            <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+              <span className="text-white">Tele Manager</span>
+            </h1>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-indigo-200 hover:text-white transition-colors">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-3">
+            <div className="mb-6">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Connected as</p>
+              <p className="text-base font-bold text-white mb-1 truncate">{userEmail}</p>
+              <span className="inline-block bg-indigo-500/30 text-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border border-indigo-400/30">STAFF</span>
+            </div>
+
+            <button onClick={() => { setActiveTab('leads'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">📋</span>
+              <p className="font-black text-xs uppercase tracking-wider">My Leads</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('manual'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">✍️</span>
+              <p className="font-black text-xs uppercase tracking-wider">Manual Entry</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('tutorial'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">📖</span>
+              <p className="font-black text-xs uppercase tracking-wider">Tutorial</p>
+            </button>
+
+            <div className="mt-auto pt-6 border-t border-white/10">
+              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+                <span>🚪</span> Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (activeTab === 'tutorial') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
+      {renderMobileMenu()}
+      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <h2 className="text-3xl font-extrabold text-gray-900 mb-6">How to use Tele Manager</h2>
           <p className="text-gray-600 mb-8 text-lg">Welcome to your workspace. Follow these simple steps to manage your daily leads effectively.</p>
@@ -350,8 +388,9 @@ Balas *“YA”* untuk semakan 🆓
   )
 
   if (activeTab === 'manual') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
+      {renderMobileMenu()}
+      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-8 animate-in fade-in duration-500">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900">Submit External Lead</h2>
@@ -389,8 +428,9 @@ Balas *“YA”* untuk semakan 🆓
     const whatsappLink = `https://wa.me/${currentLead.phone_number}`
 
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-        <div className="flex-1 p-4 sm:p-8 pb-44 md:pb-8 animate-in slide-in-from-right-8 duration-300">
+      <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
+        {renderMobileMenu()}
+        <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
             <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
@@ -476,8 +516,9 @@ Balas *“YA”* untuk semakan 🆓
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}{renderBottomNav()}
-      <div className="flex-1 p-4 sm:p-8 pb-44 md:pb-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
+      {renderMobileMenu()}
+      <div className="flex-1 p-4 sm:p-8 pb-8 animate-in fade-in duration-500">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">My Leads</h1>

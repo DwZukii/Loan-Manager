@@ -67,6 +67,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const [showNav, setShowNav] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1578,35 +1579,66 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     </>
   )
 
-  const renderBottomNav = () => (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(165,180,252,0.2)'}}>
-      <div className="flex h-16">
-        <button onClick={() => setActiveTab('overview')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'overview' ? 'scale-110' : ''}`}>🎯</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'overview' ? 'text-white' : 'text-indigo-400'}`}>Command</span>
-          {activeTab === 'overview' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-        <button onClick={() => setActiveTab('data')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'data' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'data' ? 'scale-110' : ''}`}>📊</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'data' ? 'text-white' : 'text-indigo-400'}`}>Matrix</span>
-          {activeTab === 'data' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-        <button onClick={() => setActiveTab('directory')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'directory' ? 'scale-110' : ''}`}>📒</span>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'directory' ? 'text-white' : 'text-indigo-400'}`}>Directory</span>
-          {activeTab === 'directory' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-        <button onClick={() => setActiveTab('feedback')} className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 relative ${activeTab === 'feedback' ? 'text-white' : 'text-indigo-400 hover:text-indigo-200'}`}>
-          <div className="relative">
-            <span className={`text-lg leading-none transition-transform duration-200 ${activeTab === 'feedback' ? 'scale-110' : ''}`}>🐞</span>
-            {unreadFeedbackCount > 0 && <span className="absolute -top-1 -right-2 bg-rose-500 text-white rounded-full h-3 min-w-[12px] flex items-center justify-center text-[8px] font-black">{unreadFeedbackCount}</span>}
+  const renderMobileMenu = () => {
+    return (
+      <>
+        {/* Backdrop overlay */}
+        <div 
+          className={`fixed inset-0 z-[90] bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+
+        {/* Sidebar Drawer */}
+        <div className={`fixed left-0 top-0 bottom-0 z-[100] w-72 bg-indigo-950/98 backdrop-blur-2xl border-r border-white/10 shadow-2xl transition-transform duration-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
+          <div className="flex items-center justify-between px-6 h-16 border-b border-white/10">
+            <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+              <span className="text-white">Tele Manager</span>
+            </h1>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-indigo-200 hover:text-white transition-colors">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
           </div>
-          <span className={`text-[10px] font-black uppercase tracking-wider ${activeTab === 'feedback' ? 'text-white' : 'text-indigo-400'}`}>Hub</span>
-          {activeTab === 'feedback' && <span className="absolute bottom-0 h-0.5 w-12 bg-indigo-300 rounded-full"></span>}
-        </button>
-      </div>
-    </nav>
-  )
+          
+          <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-3">
+            <div className="mb-6">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Connected as</p>
+              <p className="text-base font-bold text-white mb-1 truncate">{userEmail}</p>
+              <span className="inline-block bg-indigo-500/30 text-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border border-indigo-400/30">{userRole}</span>
+            </div>
+
+            <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">🎯</span>
+              <p className="font-black text-xs uppercase tracking-wider">Command Center</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">📊</span>
+              <p className="font-black text-xs uppercase tracking-wider">Global Matrix</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">📒</span>
+              <p className="font-black text-xs uppercase tracking-wider">Directory</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('feedback'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <span className="text-xl">🐞</span>
+              <div className="flex-1 flex items-center justify-between">
+                <p className="font-black text-xs uppercase tracking-wider">Feedback Hub</p>
+                {unreadFeedbackCount > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[8px] font-black">{unreadFeedbackCount}</span>}
+              </div>
+            </button>
+
+            <div className="mt-auto pt-6 border-t border-white/10">
+              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+                <span>🚪</span> Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-x-hidden">
@@ -1670,12 +1702,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <div className="lg:hidden -ml-2">
+              <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+              </button>
+            </div>
             <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
               <span className="text-white">Tele Manager</span>
               <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest">{userRole}</span>
             </h1>
-            <div className="hidden md:flex items-center gap-1 p-1 rounded-xl" style={{background: 'rgba(255,255,255,0.08)'}}>
+            <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl" style={{background: 'rgba(255,255,255,0.08)'}}>
               <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Command Center</button>
               <button onClick={() => setActiveTab('data')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
               <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
@@ -1686,7 +1723,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-indigo-300 hidden sm:block">{userEmail}</span>
+            <span className="text-xs font-semibold text-indigo-300 hidden lg:block">{userEmail}</span>
             <button onClick={() => setIsNotifPanelOpen(true)} className="relative p-2 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
               <svg className={`w-5 h-5 ${activeLeads.length > 0 ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               {activeLeads.length > 0 && <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-black shadow-lg">{activeLeads.length > 99 ? '9+' : activeLeads.length}</span>}
@@ -1694,9 +1731,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
           </div>
         </div>
-    </nav>
-      {renderBottomNav()}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-44 md:pb-8">
+      </nav>
+      {renderMobileMenu()}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'data' && renderDataMatrixTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
