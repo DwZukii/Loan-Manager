@@ -146,13 +146,23 @@ Balas *“YA”* untuk semakan 🆓
   }, [userEmail])
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from('leads').select('*').eq('assigned_to', userEmail).order('created_at', { ascending: false })
-      if (data) setLeads(data); 
-      setIsLoading(false)
+    fetchMyLeads()
+
+    const leadsSubscription = supabase
+      .channel('staff-dashboard-leads')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          fetchMyLeads()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(leadsSubscription)
     }
-    fetch()
-  }, [userEmail])
+  }, [fetchMyLeads])
 
   const handleStatusChange = async (id, newStatus) => {
     setLeads(prevLeads => prevLeads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))

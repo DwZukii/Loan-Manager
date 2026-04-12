@@ -17,6 +17,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
   const [assignStatus, setAssignStatus] = useState('')
+  const [isAssigning, setIsAssigning] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+  const [isUploadingToDB, setIsUploadingToDB] = useState(false)
 
   const [extractMode, setExtractMode] = useState('all')
   const [minAge, setMinAge] = useState(25)
@@ -183,7 +186,24 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setActiveLeads([...adminNotifs, ...workedOnLeads.slice(0, 50)]) 
   }, [userEmail]);
 
-  useEffect(() => { fetchManagerData() }, [fetchManagerData]) 
+  useEffect(() => {
+    fetchManagerData()
+
+    const leadsSubscription = supabase
+      .channel('manager-dashboard-leads')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          fetchManagerData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(leadsSubscription)
+    }
+  }, [fetchManagerData])
 
   const handleCreateAccount = async () => {
     if (!newAccEmail || !newAccPassword || newAccPassword.length < 6) return setAccCreateStatus("Email and password (min 6 chars) required.")
@@ -395,6 +415,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
   const handleUploadToDatabase = async () => {
     if (validNumbers.length === 0) return; 
+    setIsUploadingToDB(true);
     setUploadStatus(`Scanning ${validNumbers.length} numbers against the global database...`);
     
     const chunkSize = 1000;
@@ -454,6 +475,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     } else {
         setUploadStatus(`Error: ${insertError.message}`)
     }
+    setIsUploadingToDB(false);
   }
 
   const handleAssignLeads = async () => {
@@ -463,6 +485,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     const finalAmount = Math.min(parsedAmount, unassignedCounts[assignSet] || 0)
     if (finalAmount <= 0) return setAssignStatus(`No leads in ${assignSet}.`)
     
+    setIsAssigning(true);
     setAssignStatus(`Assigning leads...`)
     const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
     if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
@@ -477,12 +500,15 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     }
     if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchManagerData() }
     else setAssignStatus(`Error: ${assignError.message}`)
+    setIsAssigning(false);
   }
 
   const handleClearPool = async () => {
     if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
+      setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
       if (!error) { alert(`Cleared ${assignSet}.`); fetchManagerData() }
+      setIsClearing(false);
     }
   }
 
@@ -656,7 +682,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               {validNumbers.length > 0 ? (
                 <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
                   <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
-                  <button onClick={handleUploadToDatabase} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all">Push to Personal {uploadSet}</button>
+                  <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Personal ${uploadSet}`}</button>
                 </div>
               ) : (
                 uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">{uploadStatus}</p>
@@ -713,9 +739,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               </select>
             </div>
             <div className="mt-auto pt-2 space-y-3">
-              <button onClick={handleAssignLeads} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all">Assign Numbers</button>
+              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Numbers'}</button>
               {unassignedCounts[assignSet] > 0 && (
-                <button onClick={handleClearPool} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors">Clear Selected Set</button>
+                <button onClick={handleClearPool} disabled={isClearing} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">{isClearing ? 'Clearing...' : 'Clear Selected Set'}</button>
               )}
               {assignStatus && <p className="text-sm font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center shadow-sm">{assignStatus}</p>}
             </div>

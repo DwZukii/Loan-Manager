@@ -23,6 +23,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
   const [assignStatus, setAssignStatus] = useState('')
+  const [isAssigning, setIsAssigning] = useState(false)
+  const [isTransferring, setIsTransferring] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+  const [isUploadingToDB, setIsUploadingToDB] = useState(false)
 
   const [extractMode, setExtractMode] = useState('all')
   const [minAge, setMinAge] = useState(25)
@@ -229,7 +233,24 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   }, [userRole, userEmail])
 
-  useEffect(() => { fetchAdminData() }, [fetchAdminData])
+  useEffect(() => {
+    fetchAdminData()
+
+    const leadsSubscription = supabase
+      .channel('admin-dashboard-leads')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        () => {
+          fetchAdminData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(leadsSubscription)
+    }
+  }, [fetchAdminData])
 
   const handleCreateAccount = async () => { 
     if (!newAccEmail || !newAccPassword || newAccPassword.length < 6) return setAccCreateStatus("Email and password (min 6 chars) required.")
@@ -446,6 +467,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const handleUploadToDatabase = async () => {
     if (validNumbers.length === 0) return; 
+    setIsUploadingToDB(true);
     setUploadStatus(`Scanning ${validNumbers.length} numbers against the global database...`);
     
     const chunkSize = 1000;
@@ -472,6 +494,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       setUploadStatus(`Upload cancelled: All ${validNumbers.length} leads are already in the database!`);
       setValidNumbers([]);
       document.getElementById('file-upload-input').value = '';
+      setIsUploadingToDB(false);
       return;
     }
     
@@ -498,6 +521,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     } else {
         setUploadStatus(`Error: ${insertError.message}`)
     }
+    setIsUploadingToDB(false);
   }
 
   const handleAssignLeads = async () => {
@@ -506,6 +530,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const finalAmount = Math.min(parsedAmount, unassignedCounts[assignSet] || 0)
     if (finalAmount <= 0) return setAssignStatus(`No unassigned leads in ${assignSet}.`)
     
+    setIsAssigning(true);
     setAssignStatus(`Assigning leads...`)
     const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
     if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
@@ -520,6 +545,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     }
     if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchAdminData() }
     else setAssignStatus(`Error: ${assignError.message}`)
+    setIsAssigning(false);
   }
 
   const handleTransferLeads = async () => {
@@ -528,6 +554,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const finalAmount = Math.min(parsedAmount, unassignedCounts[transferSet] || 0)
     if (finalAmount <= 0) return setTransferStatus(`No leads in ${transferSet} to transfer.`)
     
+    setIsTransferring(true);
     setTransferStatus(`Transferring leads...`)
     const { data: leadsToTransfer, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet).limit(finalAmount)
     if (fetchError || !leadsToTransfer) return setTransferStatus(`Error: Could not fetch leads. Please try again.`)
@@ -545,12 +572,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       setTransferStatus(`✅ Transferred ${ids.length} leads to manager.`); 
       setTransferAmount('50'); setTransferManagerEmail(''); fetchAdminData() 
     } else setTransferStatus(`Error: ${transferError.message}`)
+    setIsTransferring(false);
   }
 
   const handleClearPool = async () => {
     if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
+      setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
       if (!error) { alert(`Cleared ${assignSet}.`); fetchAdminData() }
+      setIsClearing(false);
     }
   }
 
@@ -808,7 +838,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               {validNumbers.length > 0 ? (
                 <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
                   <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
-                  <button onClick={handleUploadToDatabase} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all">Push to Admin {uploadSet}</button>
+                  <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Admin ${uploadSet}`}</button>
                 </div>
               ) : uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">{uploadStatus}</p>}
             </div>
@@ -840,8 +870,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <select value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow"><option value="">Choose a staff member...</option>{agentsList.map(a => <option key={a.id} value={a.email}>{a.email}</option>)}</select>
             </div>
             <div className="mt-auto pt-2 space-y-3">
-              <button onClick={handleAssignLeads} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all">Assign Leads</button>
-              {unassignedCounts[assignSet] > 0 && <button onClick={handleClearPool} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors">Clear Selected Set</button>}
+              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Leads'}</button>
+              {unassignedCounts[assignSet] > 0 && <button onClick={handleClearPool} disabled={isClearing} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">{isClearing ? 'Clearing...' : 'Clear Selected Set'}</button>}
               {assignStatus && <p className="text-sm font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center shadow-sm">{assignStatus}</p>}
             </div>
           </div>
@@ -870,7 +900,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <select value={transferManagerEmail} onChange={(e) => setTransferManagerEmail(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"><option value="">Select Manager...</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>
           </div>
           <div className="w-full sm:w-auto">
-            <button onClick={handleTransferLeads} className="w-full bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-blue-700 shadow flex-shrink-0 transition-all whitespace-nowrap">Transfer Leads</button>
+            <button onClick={handleTransferLeads} disabled={isTransferring} className="w-full bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-blue-700 shadow flex-shrink-0 transition-all whitespace-nowrap disabled:opacity-50">{isTransferring ? 'Transferring...' : 'Transfer Leads'}</button>
           </div>
         </div>
       </div>
