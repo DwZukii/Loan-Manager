@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
+import UserDropdown from './UserDropdown'
 
 export default function StaffDashboard({ userEmail, onLogout }) {
   const [activeTab, setActiveTab] = useState('leads') 
@@ -305,9 +306,8 @@ Balas *“YA”* untuk semakan 🆓
             <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-indigo-300 hidden lg:block">{userEmail}</span>
-          <button onClick={onLogout} style={{background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(252,165,165,0.3)'}} className="text-rose-300 hover:text-white hover:bg-rose-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200">Sign Out</button>
+        <div className="flex items-center gap-4">
+          <UserDropdown userEmail={userEmail} userRole="agent" onLogout={onLogout} />
         </div>
       </div>
     </nav>
