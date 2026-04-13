@@ -1,10 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
+import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAdminData } from '../hooks/useAdminData'
 
 export default function AdminDashboard({ userEmail, userRole, onLogout }) {
+  const queryClient = useQueryClient();
+  const { data } = useAdminData(userEmail, userRole);
+  
+  const allFeedback = data?.allFeedback || [];
+  const unassignedCounts = data?.unassignedCounts || { 'Set A': 0, 'Set B': 0, 'Set C': 0 };
+  const managersList = data?.managersList || [];
+  const agentsList = data?.agentsList || [];
+  const managerStats = data?.managerStats || [];
+  const agentStats = data?.agentStats || [];
+  const activeLeads = data?.activeLeads || [];
+
   const [activeTab, setActiveTab] = useState('overview') 
   const [isNotifPanelOpen, setIsNotifPanelOpen] = useState(false)
   const [managerSearch, setManagerSearch] = useState('')
@@ -15,10 +30,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [validNumbers, setValidNumbers] = useState([])
   const [uploadSet, setUploadSet] = useState('Set A') 
   const [uploadStatus, setUploadStatus] = useState('')
-  
-  const [unassignedCounts, setUnassignedCounts] = useState({ 'Set A': 0, 'Set B': 0, 'Set C': 0 }) 
-  const [agentStats, setAgentStats] = useState([])
-  const [managerStats, setManagerStats] = useState([])
   
   const [assignEmail, setAssignEmail] = useState('')
   const [assignAmount, setAssignAmount] = useState('50')
@@ -42,10 +53,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [purgeStatus, setPurgeStatus] = useState('')
   const [isPurging, setIsPurging] = useState(false)
 
-  const [activeLeads, setActiveLeads] = useState([]) 
-  const [managersList, setManagersList] = useState([])
-  const [agentsList, setAgentsList] = useState([])
-
   const [newAccEmail, setNewAccEmail] = useState('')
   const [newAccPassword, setNewAccPassword] = useState('')
   const [newAccRole, setNewAccRole] = useState('agent') 
@@ -61,7 +68,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [profilePage, setProfilePage] = useState(1)
   const profileLeadsPerPage = 10
 
-  const [allFeedback, setAllFeedback] = useState([])
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
   const [feedbackType, setFeedbackType] = useState('Bug')
   const [feedbackMessage, setFeedbackMessage] = useState('')
@@ -73,6 +79,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [showNav, setShowNav] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [expandedManagers, setExpandedManagers] = useState({})
 
   useEffect(() => {
     const handleScroll = () => {
@@ -110,148 +117,29 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         setFeedbackType('Bug')
       }, 2000)
     } catch (error) {
-      alert("Error submitting feedback: " + error.message)
+      toast.error("Error submitting feedback: " + error.message)
     } finally {
       setIsFeedbackSubmitting(false)
     }
   }
 
   const handleFeedbackStatusChange = async (id, newStatus) => {
-    setAllFeedback(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f))
+    queryClient.setQueryData(['adminData', userEmail], (old) => {
+      if (!old) return null;
+      return { ...old, allFeedback: old.allFeedback.map(f => f.id === id ? { ...f, status: newStatus } : f) };
+    });
     await supabase.from('feedback').update({ status: newStatus }).eq('id', id)
   }
 
   const handleDeleteFeedback = async (id) => {
     if (window.confirm("Delete this report?")) {
-      setAllFeedback(prev => prev.filter(f => f.id !== id))
+      queryClient.setQueryData(['adminData', userEmail], (old) => {
+        if (!old) return null;
+        return { ...old, allFeedback: old.allFeedback.filter(f => f.id !== id) };
+      });
       await supabase.from('feedback').delete().eq('id', id)
     }
   }
-
-  const fetchAdminData = useCallback(async () => {
-    const { data: profilesData } = await supabase.from('profiles').select('*')
-    if (profilesData) {
-      setManagersList(profilesData.filter(p => p.role === 'manager'))
-      setAgentsList(profilesData.filter(p => p.role === 'agent'))
-    }
-
-    let teamEmails = []
-    if (userRole === 'super_admin') {
-      teamEmails = profilesData ? profilesData.filter(p => p.role === 'agent').map(p => p.email) : []
-    } else {
-      teamEmails = profilesData ? profilesData.filter(p => p.manager_email === userEmail).map(p => p.email) : []
-    }
-
-    const allAgents = profilesData ? profilesData.filter(p => p.role === 'agent') : [];
-    const allManagers = profilesData ? profilesData.filter(p => p.role === 'manager') : [];
-
-    // 1. Admin's own pool counts — COUNT queries only, no row data transferred
-    const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
-    const countResults = await Promise.all(
-      setKeys.map(set =>
-        supabase.from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_to', 'unassigned')
-          .eq('pool_owner', userEmail)
-          .eq('lead_set', set)
-      )
-    );
-    const counts = {};
-    setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
-    setUnassignedCounts(counts);
-
-    // 2. Manager pool stats — parallel COUNT queries per manager, no row scanning
-    const mStatsMap = {};
-    allManagers.forEach(manager => {
-      mStatsMap[manager.email] = {
-        email: manager.email,
-        unassigned_pool: 0,
-        total_agents: allAgents.filter(a => a.manager_email === manager.email).length
-      }
-    });
-    const managerCountResults = await Promise.all(
-      allManagers.map(manager =>
-        supabase.from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_to', 'unassigned')
-          .eq('pool_owner', manager.email)
-      )
-    );
-    allManagers.forEach((manager, i) => {
-      mStatsMap[manager.email].unassigned_pool = managerCountResults[i].count || 0;
-    });
-    setManagerStats(Object.values(mStatsMap));
-
-    // 3. Agent stats — single GROUP BY via RPC, Postgres counts internally
-    // Always 1 round trip regardless of how many leads exist
-    const statsMap = {};
-    allAgents.forEach(agent => {
-      statsMap[agent.email] = {
-        email: agent.email,
-        manager: agent.manager_email || 'Unassigned',
-        total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0, invalid: 0
-      }
-    });
-
-    if (teamEmails.length > 0) {
-      const { data: groupedStats } = await supabase.rpc('get_agent_stats', { agent_emails: teamEmails })
-      if (groupedStats) {
-        groupedStats.forEach(row => {
-          if (!statsMap[row.assigned_to]) return
-          statsMap[row.assigned_to].total += Number(row.count)
-          if (row.status === 'Pending') statsMap[row.assigned_to].pending += Number(row.count)
-          if (row.status === 'Accepted') statsMap[row.assigned_to].accepted += Number(row.count)
-          if (row.status === 'Rejected') statsMap[row.assigned_to].rejected += Number(row.count)
-          if (row.status === 'Thinking') statsMap[row.assigned_to].thinking += Number(row.count)
-          if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
-          if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
-          if (row.status === 'Invalid Number') statsMap[row.assigned_to].invalid += Number(row.count)
-        })
-      }
-    }
-    setAgentStats(Object.values(statsMap));
-
-    // Notification query — only fetch columns the panel displays, filter team upfront
-    // Avoids scanning entire unreviewed pile which grows daily
-    if (teamEmails.length > 0) {
-      const { data: activeData } = await supabase
-        .from('leads')
-        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set')
-        .in('assigned_to', teamEmails)
-        .eq('is_reviewed', false)
-        .order('id', { ascending: false })
-        .limit(50)
-      if (activeData) {
-        const workedOnLeads = activeData.filter(lead =>
-          lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
-        )
-        setActiveLeads(workedOnLeads)
-      }
-    }
-
-    const { data: feedbackData } = await supabase.from('feedback').select('*').order('created_at', { ascending: false });
-    if (feedbackData) setAllFeedback(feedbackData);
-
-  }, [userRole, userEmail])
-
-  useEffect(() => {
-    fetchAdminData()
-
-    const leadsSubscription = supabase
-      .channel('admin-dashboard-leads')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
-        () => {
-          fetchAdminData()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(leadsSubscription)
-    }
-  }, [fetchAdminData])
 
   const handleCreateAccount = async () => { 
     if (!newAccEmail || !newAccPassword || newAccPassword.length < 6) return setAccCreateStatus("Email and password (min 6 chars) required.")
@@ -269,7 +157,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         if (updateError) throw updateError;
         
         setAccCreateStatus(`Success! Account restored and assigned for ${newAccEmail}.`); 
-        setNewAccEmail(''); setNewAccPassword(''); fetchAdminData();
+        setNewAccEmail(''); setNewAccPassword(''); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
         setIsCreatingAcc(false);
         return;
       }
@@ -288,7 +176,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       if (profileError) throw profileError
 
       setAccCreateStatus(`Success! Account active for ${newAccEmail}.`); 
-      setNewAccEmail(''); setNewAccPassword(''); fetchAdminData() 
+      setNewAccEmail(''); setNewAccPassword(''); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
     } catch (err) { 
       setAccCreateStatus(`Error: ${err.message}`) 
     }
@@ -297,7 +185,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const handleAssignManager = async (agentEmail, newManagerEmail) => {
     const { error } = await supabase.from('profiles').update({ manager_email: newManagerEmail || null }).eq('email', agentEmail)
-    if (!error) { setAgentsList(agentsList.map(a => a.email === agentEmail ? { ...a, manager_email: newManagerEmail } : a)); fetchAdminData() } 
+    if (!error) { queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) } 
   }
 
   // ── SHARED HELPERS ────────────────────────────────────────────────────────
@@ -518,7 +406,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
         setValidNumbers([]); 
         document.getElementById('file-upload-input').value = ''; 
-        fetchAdminData(); 
+        queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }); 
     } else {
         setUploadStatus(`Error: ${insertError.message}`)
     }
@@ -544,7 +432,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
       if (error) { assignError = error; break; }
     }
-    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchAdminData() }
+    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
     else setAssignStatus(`Error: ${assignError.message}`)
     setIsAssigning(false);
   }
@@ -571,7 +459,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
     if (!transferError) { 
       setTransferStatus(`✅ Transferred ${ids.length} leads to manager.`); 
-      setTransferAmount('50'); setTransferManagerEmail(''); fetchAdminData() 
+      setTransferAmount('50'); setTransferManagerEmail(''); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
     } else setTransferStatus(`Error: ${transferError.message}`)
     setIsTransferring(false);
   }
@@ -580,7 +468,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
       setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
-      if (!error) { alert(`Cleared ${assignSet}.`); fetchAdminData() }
+      if (!error) { toast.success(`Cleared ${assignSet}.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
       setIsClearing(false);
     }
   }
@@ -592,7 +480,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       const fileName = leadToDismiss.document_url.split('/').pop();
       await supabase.storage.from('documents').remove([fileName]);
     }
-    setActiveLeads(activeLeads.filter(lead => lead.id !== id));
+    queryClient.setQueryData(['adminData', userEmail], (old) => old ? { ...old, activeLeads: old.activeLeads.filter(l => l.id !== id) } : null);
     await supabase.from('leads').update({ is_reviewed: true, document_url: null }).eq('id', id);
   }
 
@@ -622,10 +510,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         }
       }
 
-      setActiveLeads([]);
-      fetchAdminData();
+      queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
     } catch (err) {
-      alert(`Error during bulk dismissal: ${err.message}`);
+      toast.error(`Error during bulk dismissal: ${err.message}`);
     }
   }
 
@@ -680,7 +567,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       }
       
       setArchiveStatus(`✅ Success! Permanently incinerated ${deadLeads.length} dead leads and reclaimed space.`);
-      fetchAdminData();
+      queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
     } catch (err) {
       setArchiveStatus(`Error: ${err.message}`);
     }
@@ -719,7 +606,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       }
       
       setPurgeStatus(`✅ Success! Permanently purged ${idsToPurge.length} invalid leads.`);
-      fetchAdminData();
+      queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
     } catch (err) {
       setPurgeStatus(`Error: ${err.message}`);
     }
@@ -729,7 +616,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
     if (pendingCount === 0) return; if (!window.confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`)) return
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned' }).eq('assigned_to', agentEmail).eq('status', 'Pending')
-    if (!error) { alert(`Revoked ${pendingCount} leads.`); fetchAdminData() }
+    if (!error) { toast.success(`Revoked ${pendingCount} leads.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
 
   const loadAgentProfile = async (agent) => {
@@ -748,7 +635,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     }
     
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null }).eq('id', leadId)
-    if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); fetchAdminData() }
+    if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
 
   const renderOverviewTab = () => (
@@ -793,7 +680,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wide">New</span>
                   </p>
                   <p className={`text-[11px] leading-snug ${extractMode === 'age' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    Reads the IC on each row to filter by age. Both IC and phone must exist on the same row.
+                    Reads the IC on each row to filter by age. Both IC and phone number must exist on the same row.
                   </p>
                 </button>
 
@@ -911,7 +798,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
         <div className="flex justify-between items-center mb-6 relative z-10">
           <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
-            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0">🔔</span> 
+            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span> 
             Global Activity Feed
           </h2>
           {activeLeads.length > 0 && (
@@ -946,7 +833,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🗑️</span>
+              <span className="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm"><Trash2 className="w-5 h-5" /></span>
               <h2 className="text-xl font-bold text-red-900">Cold Storage</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days across the system.</p>
@@ -965,7 +852,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <div className="absolute top-0 right-0 w-24 h-24 bg-gray-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-gray-100 text-gray-700 rounded-lg w-10 h-10 flex items-center justify-center text-xl shadow-sm">🛡️</span>
+              <span className="bg-gray-100 text-gray-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm"><ShieldCheck className="w-5 h-5" /></span>
               <h2 className="text-xl font-bold text-gray-900">Data Quality</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">There are <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} leads</span> marked as invalid. Purge them to maintain database health.</p>
@@ -1017,7 +904,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
         <div className="relative z-10">
           <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
-            <span className="bg-white/15 rounded-xl p-2 text-xl">📊</span>
+            <span className="bg-white/15 rounded-xl p-2"><BarChart3 className="w-6 h-6 text-white" /></span>
             Global Staff Matrix
           </h2>
           <p className="text-indigo-300 text-sm font-medium mb-6">Real-time performance intelligence across your entire operation.</p>
@@ -1041,7 +928,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-base">📈</span>
+            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
               <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
@@ -1069,7 +956,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center text-base">🥧</span>
+            <span className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center text-violet-500"><PieChartIcon className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Pipeline Health</h3>
               <p className="text-xs text-gray-400">Global lead status breakdown</p>
@@ -1097,7 +984,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-base">👥</span>
+            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
             <div>
               <h3 className="text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
               <p className="text-xs text-gray-400 font-medium mt-0.5">
@@ -1176,7 +1063,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-base">👔</span>
+            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span>
             <div>
               <h3 className="text-lg font-extrabold text-gray-900">Manager Pool Overview</h3>
               <p className="text-xs text-gray-400 font-medium mt-0.5">
@@ -1250,7 +1137,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         {/* Provision New Account */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="px-8 py-6 flex items-center gap-4">
-            <span className="bg-white/15 rounded-xl p-2.5 text-xl">✨</span>
+            <span className="bg-white/15 rounded-xl p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
               <h3 className="text-xl font-extrabold text-white">Provision New Account</h3>
               <p className="text-indigo-300 text-sm mt-0.5 font-medium">Create a secure login for a new staff member or manager.</p>
@@ -1287,7 +1174,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">👔</span> Manager Directory & Teams</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span> Manager Directory & Teams</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {managersList.filter(m => m.email.toLowerCase().includes(managerSearch.toLowerCase())).length} of {managersList.length} manager{managersList.length !== 1 ? 's' : ''} · {agentsList.length} total staff
                 </p>
@@ -1332,9 +1219,24 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                             </div>
                           </div>
                           <div className="p-4 bg-white">
-                            {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (
-                              <ul className="space-y-2">{team.map(a => (<li key={a.id} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[10px] font-black uppercase flex-shrink-0">{a.email.charAt(0)}</span><span className="text-sm text-gray-700 font-medium truncate">{a.email}</span></li>))}</ul>
-                            )}
+                            {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (() => {
+                              const isExpanded = expandedManagers[m.id];
+                              const visibleTeam = isExpanded ? team : team.slice(0, 3);
+                              const hasMore = team.length > 3;
+                              return (
+                                <>
+                                  <ul className="space-y-2">{visibleTeam.map(a => (<li key={a.id} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[10px] font-black uppercase flex-shrink-0">{a.email.charAt(0)}</span><span className="text-sm text-gray-700 font-medium truncate">{a.email}</span></li>))}</ul>
+                                  {hasMore && (
+                                    <button 
+                                      onClick={() => setExpandedManagers(prev => ({...prev, [m.id]: !prev[m.id]}))}
+                                      className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center gap-1 shadow-sm"
+                                    >
+                                      {isExpanded ? 'Hide Staff \u2191' : `View All ${team.length} Staff \u2193`}
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       )
@@ -1351,7 +1253,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">🔄</span> Reassign Staff</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600"><RefreshCw className="w-5 h-5" /></span> Reassign Staff</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {agentsList.filter(a => a.email.toLowerCase().includes(staffSearch.toLowerCase())).length} of {agentsList.length} staff member{agentsList.length !== 1 ? 's' : ''}
                 </p>
@@ -1524,8 +1426,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{fb.user_role}</div>
                     </td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold leading-none ${fb.type === 'Bug' ? 'bg-rose-100 text-rose-700' : fb.type === 'Suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'}`}>
-                        {fb.type === 'Bug' ? '🐞 Bug' : fb.type === 'Suggestion' ? '💡 Suggestion' : '💬 Other'}
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold leading-none ${fb.type === 'Bug' ? 'bg-rose-100 text-rose-700' : fb.type === 'Suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'}`}>
+                        {fb.type === 'Bug' ? <><Bug className="w-3.5 h-3.5" /> Bug</> : fb.type === 'Suggestion' ? <><Lightbulb className="w-3.5 h-3.5" /> Suggestion</> : <><MessageSquare className="w-3.5 h-3.5" /> Other</>}
                       </span>
                     </td>
                     <td className="p-4 text-sm text-slate-700 font-medium leading-relaxed">
@@ -1538,17 +1440,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                           onChange={(e) => handleFeedbackStatusChange(fb.id, e.target.value)}
                           className={`text-sm font-bold rounded-lg px-3 py-1.5 border text-right cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${fb.status === 'Resolved' ? 'bg-green-50 border-green-200 text-green-700' : fb.status === 'In Progress' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
                         >
-                          <option value="New">🚨 New</option>
-                          <option value="In Progress">⏳ In Progress</option>
-                          <option value="Resolved">✅ Resolved</option>
+                          <option value="New">New</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Resolved">Resolved</option>
                         </select>
                         {userRole === 'super_admin' && (
                           <button 
                             onClick={() => handleDeleteFeedback(fb.id)} 
-                            className="bg-white border border-red-200 text-red-600 font-bold px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 transition"
+                            className="bg-white border border-red-200 text-red-600 font-bold p-1.5 rounded-lg hover:bg-red-50 transition"
                             title="Delete Report"
                           >
-                            🗑️
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -1566,7 +1468,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const renderFeedbackModal = () => (
     <>
       <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-[60] bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
-        <span className="text-xl">🐞</span>
+        <Bug className="w-6 h-6" />
         <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
       </button>
 
@@ -1580,7 +1482,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
             {feedbackSuccess ? (
               <div className="p-8 text-center bg-white flex flex-col items-center justify-center space-y-3">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mb-2">✅</div>
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2"><CheckCircle className="w-8 h-8" /></div>
                 <h4 className="text-xl font-bold text-slate-800">Received!</h4>
                 <p className="text-slate-500 font-medium">Thanks for helping us improve.</p>
               </div>
@@ -1589,9 +1491,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
                   <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <option value="Bug">🐞 Report a Bug</option>
-                    <option value="Suggestion">💡 Suggestion</option>
-                    <option value="Other">💬 Other</option>
+                    <option value="Bug">Report a Bug</option>
+                    <option value="Suggestion">Suggestion</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
@@ -1626,7 +1528,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <span className="text-white">Tele Manager</span>
             </h1>
             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <X className="w-8 h-8" />
             </button>
           </div>
           
@@ -1638,22 +1540,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
 
             <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">🎯</span>
+              <Target className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Command Center</p>
             </button>
 
             <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📊</span>
+              <BarChart3 className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Global Matrix</p>
             </button>
 
             <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📒</span>
+              <BookOpen className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Directory</p>
             </button>
 
             <button onClick={() => { setActiveTab('feedback'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">🐞</span>
+              <Bug className="w-6 h-6" />
               <div className="flex-1 flex items-center justify-between">
                 <p className="font-black text-xs uppercase tracking-wider">Feedback Hub</p>
                 {unreadFeedbackCount > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[8px] font-black">{unreadFeedbackCount}</span>}
@@ -1662,7 +1564,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
             <div className="mt-auto pt-6 border-t border-white/10">
               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-                <span>🚪</span> Sign Out
+                <LogOut className="w-4 h-4" /> Sign Out
               </button>
             </div>
           </div>
@@ -1736,7 +1638,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <div className="flex items-center gap-4 sm:gap-8">
             <div className="lg:hidden -ml-2 animate-nav-entry">
               <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                <Menu className="w-6 h-6" />
               </button>
             </div>
             <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">

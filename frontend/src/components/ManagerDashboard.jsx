@@ -1,10 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
+import { Bug, X, Target, BarChart3, BookOpen, LogOut, Menu, Bell, Sparkles, Users } from 'lucide-react'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { useManagerData } from '../hooks/useManagerData'
 
 export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
+  const queryClient = useQueryClient();
+  const { data } = useManagerData(userEmail);
+  
+  const myTeamList = data?.myAgents || [];
+  const myTeamEmails = data?.teamEmails || [];
+  const unassignedCounts = data?.unassignedCounts || { 'Set A': 0, 'Set B': 0, 'Set C': 0 };
+  const agentStats = data?.agentStats || [];
+  const activeLeads = [...(data?.managerNotifications || []), ...(data?.activeLeads?.slice(0, 50) || [])]
+
   const [activeTab, setActiveTab] = useState('overview') 
   const [isNotifPanelOpen, setIsNotifPanelOpen] = useState(false)
 
@@ -12,8 +25,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [uploadSet, setUploadSet] = useState('Set A') 
   const [uploadStatus, setUploadStatus] = useState('')
   
-  const [unassignedCounts, setUnassignedCounts] = useState({ 'Set A': 0, 'Set B': 0, 'Set C': 0 }) 
-  const [agentStats, setAgentStats] = useState([])
   const [assignEmail, setAssignEmail] = useState('')
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
@@ -25,10 +36,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [extractMode, setExtractMode] = useState('all')
   const [minAge, setMinAge] = useState(25)
   const [maxAge, setMaxAge] = useState(55)
-  
-  const [activeLeads, setActiveLeads] = useState([]) 
-  const [myTeamEmails, setMyTeamEmails] = useState([])
-  const [myTeamList, setMyTeamList] = useState([])
 
   const [newAccEmail, setNewAccEmail] = useState('')
   const [newAccPassword, setNewAccPassword] = useState('')
@@ -90,121 +97,12 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         setFeedbackType('Bug')
       }, 2000)
     } catch (error) {
-      alert("Error submitting feedback: " + error.message)
+      toast.error("Error submitting feedback: " + error.message)
     } finally {
       setIsFeedbackSubmitting(false)
     }
   }
 
-  const fetchManagerData = useCallback(async () => {
-    const { data: profilesData } = await supabase.from('profiles').select('*')
-    const myAgents = profilesData ? profilesData.filter(p => p.manager_email === userEmail) : []
-    const teamEmails = myAgents.map(p => p.email)
-    
-    setMyTeamList(myAgents)
-    setMyTeamEmails(teamEmails)
-
-    // 1. Get pool counts using COUNT queries — returns just numbers, no row data transferred
-    const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
-    const countResults = await Promise.all(
-      setKeys.map(set =>
-        supabase.from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_to', 'unassigned')
-          .eq('pool_owner', userEmail)
-          .eq('lead_set', set)
-      )
-    );
-    const counts = {};
-    setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
-    setUnassignedCounts(counts);
-
-    // 2. Get agent stats — single GROUP BY via RPC, Postgres counts internally
-    // Always 1 round trip regardless of how many leads exist
-    const statsMap = {};
-    myAgents.forEach(agent => {
-      statsMap[agent.email] = { email: agent.email, total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0, invalid: 0 }
-    });
-
-    if (teamEmails.length > 0) {
-      const { data: groupedStats } = await supabase.rpc('get_agent_stats', { agent_emails: teamEmails })
-      if (groupedStats) {
-        groupedStats.forEach(row => {
-          if (!statsMap[row.assigned_to]) return
-          statsMap[row.assigned_to].total += Number(row.count)
-          if (row.status === 'Pending') statsMap[row.assigned_to].pending += Number(row.count)
-          if (row.status === 'Accepted') statsMap[row.assigned_to].accepted += Number(row.count)
-          if (row.status === 'Rejected') statsMap[row.assigned_to].rejected += Number(row.count)
-          if (row.status === 'Thinking') statsMap[row.assigned_to].thinking += Number(row.count)
-          if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
-          if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
-          if (row.status === 'Invalid Number') statsMap[row.assigned_to].invalid += Number(row.count)
-        })
-      }
-    }
-    setAgentStats(Object.values(statsMap));
-
-    // Notification query — only fetch columns the panel displays, filter team upfront
-    // Avoids scanning entire unreviewed pile which grows daily
-    let workedOnLeads = [];
-    if (teamEmails.length > 0) {
-      const { data: activeData } = await supabase
-        .from('leads')
-        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set')
-        .in('assigned_to', teamEmails)
-        .eq('is_reviewed', false)
-        .order('id', { ascending: false })
-        .limit(50)
-      if (activeData) {
-        workedOnLeads = activeData.filter(lead =>
-          lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
-        )
-      }
-    }
-
-    const { data: adminLeadsData } = await supabase.from('leads')
-      .select('id, lead_set')
-      .eq('pool_owner', userEmail)
-      .eq('assigned_to', 'unassigned')
-      .eq('is_reviewed', false);
-    
-    let adminNotifs = [];
-    if (adminLeadsData && adminLeadsData.length > 0) {
-      const sets = [...new Set(adminLeadsData.map(l => l.lead_set))];
-      sets.forEach(setName => {
-        const ids = adminLeadsData.filter(l => l.lead_set === setName).map(l => l.id);
-        adminNotifs.push({
-          id: `admin_drop_${setName}`,
-          type: 'admin_drop',
-          ids: ids,
-          message: `Admin transferred ${ids.length} new leads to your ${setName} pool.`,
-          lead_set: setName,
-          status: 'New Allocation'
-        });
-      });
-    }
-
-    setActiveLeads([...adminNotifs, ...workedOnLeads.slice(0, 50)]) 
-  }, [userEmail]);
-
-  useEffect(() => {
-    fetchManagerData()
-
-    const leadsSubscription = supabase
-      .channel('manager-dashboard-leads')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
-        () => {
-          fetchManagerData()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(leadsSubscription)
-    }
-  }, [fetchManagerData])
 
   const handleCreateAccount = async () => {
     if (!newAccEmail || !newAccPassword || newAccPassword.length < 6) return setAccCreateStatus("Email and password (min 6 chars) required.")
@@ -220,7 +118,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         if (updateError) throw updateError;
         
         setAccCreateStatus(`Success! Account restored and assigned for ${newAccEmail}.`); 
-        setNewAccEmail(''); setNewAccPassword(''); fetchManagerData();
+        setNewAccEmail(''); setNewAccPassword(''); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] });
         setIsCreatingAcc(false);
         return;
       }
@@ -241,7 +139,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       setAccCreateStatus(`Success! Staff account created.`); 
       setNewAccEmail(''); 
       setNewAccPassword(''); 
-      fetchManagerData() 
+      queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) 
     } catch (err) { 
       setAccCreateStatus(`Error: ${err.message}`) 
     }
@@ -472,7 +370,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
         setValidNumbers([]); 
         document.getElementById('file-upload-input').value = ''; 
-        fetchManagerData(); 
+        queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }); 
     } else {
         setUploadStatus(`Error: ${insertError.message}`)
     }
@@ -499,7 +397,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
       if (error) { assignError = error; break; }
     }
-    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); fetchManagerData() }
+    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
     else setAssignStatus(`Error: ${assignError.message}`)
     setIsAssigning(false);
   }
@@ -508,7 +406,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
       setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
-      if (!error) { alert(`Cleared ${assignSet}.`); fetchManagerData() }
+      if (!error) { toast.success(`Cleared ${assignSet}.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
       setIsClearing(false);
     }
   }
@@ -520,12 +418,18 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       const fileName = leadToDismiss.document_url.split('/').pop();
       await supabase.storage.from('documents').remove([fileName]);
     }
-    setActiveLeads(activeLeads.filter(lead => lead.id !== id));
+    queryClient.setQueryData(['managerData', userEmail], (oldData) => {
+      if (!oldData) return null;
+      return { ...oldData, activeLeads: oldData.activeLeads.filter(lead => lead.id !== id) };
+    });
     await supabase.from('leads').update({ is_reviewed: true, document_url: null }).eq('id', id);
   }
 
   const handleDismissAdminDrop = async (notifId, ids) => {
-    setActiveLeads(activeLeads.filter(lead => lead.id !== notifId));
+    queryClient.setQueryData(['managerData', userEmail], (oldData) => {
+      if (!oldData) return null;
+      return { ...oldData, managerNotifications: oldData.managerNotifications.filter(notif => notif.id !== notifId) };
+    });
     await supabase.from('leads').update({ is_reviewed: true }).in('id', ids);
   }
 
@@ -555,17 +459,16 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         }
       }
 
-      setActiveLeads([]);
-      fetchManagerData();
+      queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] });
     } catch (err) {
-      alert(`Error during bulk dismissal: ${err.message}`);
+      toast.error(`Error during bulk dismissal: ${err.message}`);
     }
   }
 
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
     if (pendingCount === 0) return; if (!window.confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`)) return
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned' }).eq('assigned_to', agentEmail).eq('status', 'Pending')
-    if (!error) { alert(`Revoked ${pendingCount} leads.`); fetchManagerData() }
+    if (!error) { toast.success(`Revoked ${pendingCount} leads.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
   }
 
   const loadAgentProfile = async (agent) => {
@@ -584,7 +487,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     }
     
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null }).eq('id', leadId)
-    if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); fetchManagerData() }
+    if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
   }
 
   const renderOverviewTab = () => (
@@ -637,7 +540,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                     <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wide">New</span>
                   </p>
                   <p className={`text-[11px] leading-snug ${extractMode === 'age' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    Reads the IC on each row to filter by age. Both IC and phone must exist on the same row.
+                    Reads the IC on each row to filter by age. Both IC and phone number must exist on the same row.
                   </p>
                 </button>
 
@@ -755,7 +658,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
         <div className="flex justify-between items-center mb-6 relative z-10">
           <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
-            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0">🔔</span> 
+            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span> 
             My Team Activity & Notes
           </h2>
           {activeLeads.length > 0 && (
@@ -836,7 +739,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
         <div className="relative z-10">
           <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
-            <span className="bg-white/15 rounded-xl p-2 text-xl">📊</span>
+            <span className="bg-white/15 rounded-xl p-2"><BarChart3 className="w-6 h-6 text-white" /></span>
             My Team Matrix
           </h2>
           <p className="text-indigo-300 text-sm font-medium mb-6">Live performance snapshot for your team.</p>
@@ -860,7 +763,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-base">📈</span>
+            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Team Performance Tracker</h3>
               <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
@@ -915,7 +818,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       {/* Staff Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-          <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-base">👥</span>
+          <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
           <div>
             <h3 className="text-lg font-extrabold text-gray-900">My Team Data Matrix</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">{agentStats.length} staff member{agentStats.length !== 1 ? 's' : ''} on your team</p>
@@ -973,7 +876,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         {/* Provision Staff Account */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="px-8 py-6 flex items-center gap-4">
-            <span className="bg-white/15 rounded-xl p-2.5 text-xl">✨</span>
+            <span className="bg-white/15 rounded-xl p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
               <h3 className="text-xl font-extrabold text-white">Provision Staff Account</h3>
               <p className="text-indigo-300 text-sm mt-0.5 font-medium">New staff created here are automatically assigned to your team.</p>
@@ -1006,7 +909,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
           <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="px-8 py-5 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-extrabold text-white flex items-center gap-2">👥 My Team</h3>
+              <h3 className="text-lg font-extrabold text-white flex items-center gap-2"><Users className="w-5 h-5" /> My Team</h3>
               <p className="text-indigo-300 text-xs font-medium mt-0.5">{myTeamList.length} active staff member{myTeamList.length !== 1 ? 's' : ''} under your command</p>
             </div>
             <div className="bg-white/15 rounded-xl px-4 py-2 text-center">
@@ -1137,7 +1040,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const renderFeedbackModal = () => (
     <>
       <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-[60] bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
-        <span className="text-xl">🐞</span>
+        <Bug className="w-6 h-6" />
         <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
       </button>
 
@@ -1197,7 +1100,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               <span className="text-white">Tele Manager</span>
             </h1>
             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <X className="w-8 h-8" />
             </button>
           </div>
           
@@ -1209,23 +1112,23 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             </div>
 
             <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">🎯</span>
+              <Target className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Command Center</p>
             </button>
 
             <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📊</span>
+              <BarChart3 className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">My Team Matrix</p>
             </button>
 
             <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📒</span>
+              <BookOpen className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Directory</p>
             </button>
 
             <div className="mt-auto pt-6 border-t border-white/10">
               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-                <span>🚪</span> Sign Out
+                <LogOut className="w-4 h-4" /> Sign Out
               </button>
             </div>
           </div>
@@ -1322,7 +1225,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           <div className="flex items-center gap-4 sm:gap-8">
             <div className="lg:hidden -ml-2 animate-nav-entry">
               <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                <Menu className="w-6 h-6" />
               </button>
             </div>
             <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">

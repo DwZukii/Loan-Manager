@@ -1,5 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './supabase'
+import { Toaster } from 'sonner'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient()
 
 const Login = lazy(() => import('./components/Login'))
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'))
@@ -41,11 +45,14 @@ export default function App() {
   if (isCheckingAuth) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>}>
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">Loading workspace...</div>}>
+        <Toaster position="top-center" richColors />
       {userRole === 'super_admin' && <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
       {userRole === 'manager' && <ManagerDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
       {userRole === 'agent' && <StaffDashboard userEmail={userEmail} onLogout={handleLogout} />}
       {!userRole && <Login onLogin={(role, email) => { setUserRole(role); setUserEmail(email); }} />}
-    </Suspense>
+      </Suspense>
+    </QueryClientProvider>
   )
 }

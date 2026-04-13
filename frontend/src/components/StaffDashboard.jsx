@@ -1,12 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
+import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { useStaffData } from '../hooks/useStaffData'
 
 export default function StaffDashboard({ userEmail, onLogout }) {
+  const queryClient = useQueryClient()
+  const { data: leads = [], isLoading } = useStaffData(userEmail)
+  
   const [activeTab, setActiveTab] = useState('leads') 
-  const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('All')
   const [currentPage, setCurrentPage] = useState(1)
   const leadsPerPage = 10
@@ -68,7 +73,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
         setFeedbackType('Bug')
       }, 2000)
     } catch (error) {
-      alert("Error submitting feedback: " + error.message)
+      toast.error("Error submitting feedback: " + error.message)
     } finally {
       setIsFeedbackSubmitting(false)
     }
@@ -77,7 +82,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const renderFeedbackModal = () => (
     <>
       <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-50 bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
-        <span className="text-xl">🐞</span>
+        <Bug className="w-6 h-6" />
         <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
       </button>
 
@@ -140,33 +145,10 @@ Balas *“YA”* untuk semakan 🆓
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
 
-  const fetchMyLeads = useCallback(async () => {
-    const { data } = await supabase.from('leads').select('*').eq('assigned_to', userEmail).order('created_at', { ascending: false })
-    if (data) setLeads(data); 
-    setIsLoading(false)
-  }, [userEmail])
-
-  useEffect(() => {
-    fetchMyLeads()
-
-    const leadsSubscription = supabase
-      .channel('staff-dashboard-leads')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
-        () => {
-          fetchMyLeads()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(leadsSubscription)
-    }
-  }, [fetchMyLeads])
-
   const handleStatusChange = async (id, newStatus) => {
-    setLeads(prevLeads => prevLeads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead))
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => 
+      oldData ? oldData.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead) : []
+    )
     await supabase.from('leads').update({ status: newStatus, is_reviewed: false }).eq('id', id)
   }
 
@@ -174,7 +156,9 @@ Balas *“YA”* untuk semakan 🆓
     setIsSavingNote(true)
     const { error } = await supabase.from('leads').update({ agent_notes: currentNote, is_reviewed: false }).eq('id', selectedLead.id)
     if (!error) { 
-      setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead)); 
+      queryClient.setQueryData(['staffData', userEmail], (oldData) => 
+        oldData ? oldData.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead) : []
+      ); 
       setSelectedLead({...selectedLead, agent_notes: currentNote}) 
     }
     setIsSavingNote(false)
@@ -184,7 +168,7 @@ Balas *“YA”* untuk semakan 🆓
     const file = e.target.files[0]; 
     if (!file) return; 
     if (file.size > 2097152) { 
-      alert("⚠️ File is too large! Max 2MB."); 
+      toast.warning("File is too large! Max 2MB.");
       e.target.value = null; 
       return; 
     }
@@ -199,7 +183,7 @@ Balas *“YA”* untuk semakan 🆓
     
     const { error } = await supabase.storage.from('documents').upload(fileName, selectedFile)
     if (error) { 
-      alert("Error: " + error.message); 
+      toast.error("Error: " + error.message);
       setUploadingFile(false); 
       return 
     }
@@ -207,7 +191,9 @@ Balas *“YA”* untuk semakan 🆓
     const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName)
     await supabase.from('leads').update({ document_url: publicUrlData.publicUrl, is_reviewed: false }).eq('id', selectedLead.id)
     
-    setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead)); 
+    queryClient.setQueryData(['staffData', userEmail], (old) => 
+      old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead) : []
+    ); 
     setSelectedLead({...selectedLead, document_url: publicUrlData.publicUrl})
     setSelectedFile(null); 
     setUploadingFile(false);
@@ -221,7 +207,9 @@ Balas *“YA”* untuk semakan 🆓
     await supabase.storage.from('documents').remove([fileName])
     await supabase.from('leads').update({ document_url: null, is_reviewed: false }).eq('id', selectedLead.id)
     
-    setLeads(leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead)); 
+    queryClient.setQueryData(['staffData', userEmail], (old) => 
+      old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead) : []
+    ); 
     setSelectedLead({...selectedLead, document_url: null}); 
     setUploadingFile(false)
   }
@@ -231,7 +219,7 @@ Balas *“YA”* untuk semakan 🆓
     if (cleanPhone.startsWith('1')) cleanPhone = '60' + cleanPhone; 
     else if (cleanPhone.startsWith('0')) cleanPhone = '6' + cleanPhone;
 
-    if (cleanPhone.length < 10) return alert("Valid phone number required.");
+    if (cleanPhone.length < 10) return toast.error("Valid phone number required.");
     setIsManualSaving(true);
     let finalUrl = null;
     
@@ -240,7 +228,7 @@ Balas *“YA”* untuk semakan 🆓
       const fileName = `manual-${Math.random()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, manualFile);
       if (uploadError) { 
-        alert("Upload failed: " + uploadError.message); 
+        toast.error("Upload failed: " + uploadError.message);
         setIsManualSaving(false); 
         return; 
       }
@@ -259,14 +247,14 @@ Balas *“YA”* untuk semakan 🆓
     }]);
     
     if (error) {
-      alert("Error: " + error.message);
+      toast.error("Error: " + error.message);
     } else { 
-      alert("Submitted successfully!"); 
+      toast.success("Submitted successfully!"); 
       setManualPhone(''); 
       setManualNote(''); 
       setManualFile(null); 
       document.getElementById('manual-file-input').value = ''; 
-      fetchMyLeads(); 
+      queryClient.invalidateQueries({ queryKey: ['staffData', userEmail] }); 
     }
     setIsManualSaving(false);
   }
@@ -293,7 +281,7 @@ Balas *“YA”* untuk semakan 🆓
         <div className="flex items-center gap-4 sm:gap-8">
           <div className="lg:hidden -ml-2 animate-nav-entry">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+              <Menu className="w-6 h-6" />
             </button>
           </div>
           <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
@@ -329,7 +317,7 @@ Balas *“YA”* untuk semakan 🆓
               <span className="text-white">Tele Manager</span>
             </h1>
             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-indigo-200 hover:text-white transition-colors">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <X className="w-8 h-8" />
             </button>
           </div>
           
@@ -341,23 +329,23 @@ Balas *“YA”* untuk semakan 🆓
             </div>
 
             <button onClick={() => { setActiveTab('leads'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📋</span>
+              <ClipboardList className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">My Leads</p>
             </button>
 
             <button onClick={() => { setActiveTab('manual'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">✍️</span>
+              <PenLine className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Manual Entry</p>
             </button>
 
             <button onClick={() => { setActiveTab('tutorial'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <span className="text-xl">📖</span>
+              <BookOpen className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Tutorial</p>
             </button>
 
             <div className="mt-auto pt-6 border-t border-white/10">
               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
-                <span>🚪</span> Sign Out
+                <LogOut className="w-4 h-4" /> Sign Out
               </button>
             </div>
           </div>
@@ -419,7 +407,7 @@ Balas *“YA”* untuk semakan 🆓
               <label className="block text-gray-700 font-bold mb-2">Attach Document (Optional, Max 2MB)</label>
               <input id="manual-file-input" type="file" accept=".pdf, image/png, image/jpeg" onChange={(e) => {
                 const f = e.target.files[0];
-                if (f && f.size > 2097152) { alert("File too large!"); e.target.value = null; return; }
+                if (f && f.size > 2097152) { toast.warning("File too large!"); e.target.value = null; return; }
                 setManualFile(f);
               }} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 p-2 rounded-xl" />
             </div>
