@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
-import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X } from 'lucide-react'
+import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStaffData } from '../hooks/useStaffData'
@@ -102,13 +102,22 @@ export default function StaffDashboard({ userEmail, onLogout }) {
               </div>
             ) : (
               <div className="p-6 bg-white space-y-5">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
-                  <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <option value="Bug">🐞 Report a Bug</option>
-                    <option value="Suggestion">💡 Suggestion</option>
-                    <option value="Other">💬 Other</option>
-                  </select>
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-slate-700">Issue Type</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <Bug className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Bug</span>
+                    </button>
+                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <Lightbulb className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Idea</span>
+                    </button>
+                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <MessageSquare className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Other</span>
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>

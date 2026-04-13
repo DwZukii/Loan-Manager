@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react'
+import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminData } from '../hooks/useAdminData'
@@ -11,6 +11,19 @@ import { useAdminData } from '../hooks/useAdminData'
 export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const queryClient = useQueryClient();
   const { data } = useAdminData(userEmail, userRole);
+
+  // Helper for notification icons
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'Accepted': return <CheckCircle2 className="w-6 h-6 text-emerald-500" />;
+      case 'Rejected': return <XCircle className="w-6 h-6 text-rose-500" />;
+      case 'Pending': return <Clock className="w-6 h-6 text-amber-500" />;
+      case 'Called (No Answer)': return <PhoneOff className="w-6 h-6 text-slate-500" />;
+      case 'WhatsApp Sent': return <MessageSquare className="w-6 h-6 text-green-500" />;
+      case 'Thinking': return <Brain className="w-6 h-6 text-indigo-500" />;
+      default: return <ClipboardList className="w-6 h-6 text-slate-400" />;
+    }
+  }
   
   const allFeedback = data?.allFeedback || [];
   const unassignedCounts = data?.unassignedCounts || { 'Set A': 0, 'Set B': 0, 'Set C': 0 };
@@ -1488,13 +1501,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
             ) : (
               <div className="p-6 bg-white space-y-5">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Issue Type</label>
-                  <select value={feedbackType} onChange={e => setFeedbackType(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <option value="Bug">Report a Bug</option>
-                    <option value="Suggestion">Suggestion</option>
-                    <option value="Other">Other</option>
-                  </select>
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-slate-700">Issue Type</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <Bug className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Bug</span>
+                    </button>
+                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <Lightbulb className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Idea</span>
+                    </button>
+                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                      <MessageSquare className="w-6 h-6 mb-1.5" />
+                      <span className="text-xs font-bold">Other</span>
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
@@ -1600,7 +1622,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-2xl">{lead.status === 'Accepted' ? '✅' : lead.status === 'Rejected' ? '❌' : lead.status === 'Pending' ? '⏳' : lead.status === 'Called (No Answer)' ? '📞' : lead.status === 'WhatsApp Sent' ? '💬' : lead.status === 'Thinking' ? '🤔' : '📋'}</span>
+                            <div className="flex-shrink-0">
+                              {getStatusIcon(lead.status)}
+                            </div>
                             <div>
                               <h3 className="text-lg font-semibold text-gray-900">{lead.phone_number}</h3>
                               <p className="text-sm text-gray-500">Staff: {lead.assigned_to} • <span className="font-semibold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
