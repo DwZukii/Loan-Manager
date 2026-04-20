@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { Bug, X, Target, BarChart3, BookOpen, LogOut, Menu, Bell, Sparkles, Users, Lightbulb, MessageSquare, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList } from 'lucide-react'
+import { Bug, X, Target, BarChart3, BookOpen, LogOut, Menu, Bell, Sparkles, Users, Lightbulb, MessageSquare, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useManagerData } from '../hooks/useManagerData'
@@ -73,6 +74,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [showNav, setShowNav] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [viewingStaffContact, setViewingStaffContact] = useState(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -943,18 +945,23 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   const gradients = ['from-indigo-500 to-blue-600','from-violet-500 to-purple-600','from-blue-500 to-cyan-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600'];
                   const grad = gradients[i % gradients.length];
                   return (
-                    <div key={a.id} className="flex items-center gap-4 bg-gray-50 hover:bg-indigo-50/40 border border-gray-100 hover:border-indigo-200 p-4 rounded-2xl transition-all duration-150 group">
-                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center text-white font-black text-lg uppercase shadow-sm flex-shrink-0`}>{a.email.charAt(0)}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-800 truncate">{a.email}</p>
-                        <span className="inline-flex items-center gap-1 mt-1 bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>Active
-                        </span>
-                      </div>
-                      <div className="w-7 h-7 bg-gray-200 group-hover:bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                      </div>
+                  <button
+                    key={a.id}
+                    onClick={() => setViewingStaffContact(a)}
+                    className="flex items-center gap-4 bg-gray-50 hover:bg-indigo-50/40 border border-gray-100 hover:border-indigo-200 p-4 rounded-2xl transition-all duration-150 group w-full text-left"
+                  >
+                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center text-white font-black text-lg uppercase shadow-sm flex-shrink-0`}>{a.email.charAt(0)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-800 truncate">{a.full_name || a.email}</p>
+                      {a.full_name && <p className="text-xs text-gray-500 truncate">{a.email}</p>}
+                      <span className="inline-flex items-center gap-1 mt-1 bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>Active
+                      </span>
                     </div>
+                    <div className="w-7 h-7 bg-gray-200 group-hover:bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                      <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-indigo-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </div>
+                  </button>
                   )
                 })}
               </div>
@@ -978,8 +985,25 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <div className="max-w-6xl mx-auto">
           <button onClick={() => { setSelectedAgentProfile(null); setAgentProfileLeads([]); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to Dashboard</button>
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-1">{p.email}</h2>
-            <p className="text-gray-500 mb-6">Staff Performance Overview</p>
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0 shadow-md">
+                {p.email.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                {p.full_name && <h2 className="text-2xl font-extrabold text-gray-900 leading-tight">{p.full_name}</h2>}
+                <p className={`${p.full_name ? 'text-sm text-gray-500 font-medium' : 'text-2xl font-extrabold text-gray-900'} flex items-center gap-1.5`}>
+                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />{p.email}
+                </p>
+                {p.contact_number ? (
+                  <a href={`tel:${p.contact_number}`} className="inline-flex items-center gap-1.5 mt-1.5 text-sm text-indigo-600 font-bold hover:text-indigo-800 transition-colors">
+                    <Phone className="w-4 h-4" />{p.contact_number}
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">⚠ No contact number</span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4">Staff Performance Overview</p>
             <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Total</p><p className="text-2xl font-black text-gray-800">{p.total}</p></div>
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center"><p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Called</p><p className="text-2xl font-black text-blue-700">{p.called}</p></div>
@@ -1276,6 +1300,74 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         {activeTab === 'directory' && renderDirectoryTab()}
       </main>
       {renderFeedbackModal()}
+
+      {/* Staff Contact Popup */}
+      {viewingStaffContact && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setViewingStaffContact(null)} />
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
+            {(() => {
+              const sc = viewingStaffContact;
+              const gradients = ['from-blue-500 to-indigo-600','from-violet-500 to-purple-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600'];
+              const grad = gradients[sc.email.charCodeAt(0) % gradients.length];
+              return (
+                <>
+                  <div className={`bg-gradient-to-br ${grad} p-6 text-center relative`}>
+                    <button onClick={() => setViewingStaffContact(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-2xl uppercase mx-auto mb-3 shadow-inner">{sc.email.charAt(0)}</div>
+                    {sc.full_name ? (
+                      <>
+                        <h3 className="text-xl font-extrabold text-white leading-tight">{sc.full_name}</h3>
+                        <p className="text-white/70 text-sm mt-0.5">{sc.email}</p>
+                      </>
+                    ) : (
+                      <h3 className="text-xl font-extrabold text-white leading-tight">{sc.email}</h3>
+                    )}
+                    <span className="inline-block mt-2 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">Staff</span>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Email</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{sc.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Phone className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Contact Number</p>
+                        {sc.contact_number ? (
+                          <a href={`tel:${sc.contact_number}`} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors">{sc.contact_number}</a>
+                        ) : (
+                          <span className="text-sm font-bold text-amber-600">⚠ Not set yet</span>
+                        )}
+                      </div>
+                    </div>
+                    {sc.contact_number && (
+                      <a
+                        href={`tel:${sc.contact_number}`}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-[0.98]"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Call {sc.full_name ? sc.full_name.split(' ')[0] : sc.email.split('@')[0]}
+                      </a>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
+
   )
 }

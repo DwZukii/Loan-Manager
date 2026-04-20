@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList } from 'lucide-react'
+import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminData } from '../hooks/useAdminData'
@@ -93,6 +94,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedManagers, setExpandedManagers] = useState({})
+  const [viewingStaffContact, setViewingStaffContact] = useState(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1224,13 +1226,19 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       const grad = gradients[m.email.charCodeAt(0) % gradients.length];
                       return (
                         <div key={m.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-                          <div className={`bg-gradient-to-br ${grad} p-5 flex items-center gap-4`}>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0">{m.email.charAt(0)}</div>
-                            <div className="min-w-0">
-                              <p className="text-white font-bold text-sm truncate" title={m.email}>{m.email}</p>
-                              <span className="inline-flex items-center gap-1 mt-1 bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 bg-green-300 rounded-full"></span>{team.length} Staff</span>
-                            </div>
-                          </div>
+                          <button
+                             type="button"
+                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(m); }}
+                             className={`bg-gradient-to-br ${grad} p-5 flex items-center gap-4 w-full text-left hover:brightness-110 transition-all duration-150 group`}
+                           >
+                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0">{m.email.charAt(0)}</div>
+                             <div className="min-w-0 flex-1">
+                               <p className="text-white font-bold text-sm truncate" title={m.email}>{m.full_name || m.email}</p>
+                               {m.full_name && <p className="text-white/70 text-xs truncate">{m.email}</p>}
+                               <span className="inline-flex items-center gap-1 mt-1 bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 bg-green-300 rounded-full"></span>{team.length} Staff</span>
+                             </div>
+                             <span className="text-white/60 text-xs opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">View →</span>
+                           </button>
                           <div className="p-4 bg-white">
                             {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (() => {
                               const isExpanded = expandedManagers[m.id];
@@ -1238,7 +1246,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                               const hasMore = team.length > 3;
                               return (
                                 <>
-                                  <ul className="space-y-2">{visibleTeam.map(a => (<li key={a.id} className="flex items-center gap-2.5 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100"><span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[10px] font-black uppercase flex-shrink-0">{a.email.charAt(0)}</span><span className="text-sm text-gray-700 font-medium truncate">{a.email}</span></li>))}</ul>
+                                  <div className="grid grid-cols-1 gap-2">{visibleTeam.map((a) => { const staffGrads = ['from-indigo-500 to-blue-600','from-violet-500 to-purple-600','from-blue-500 to-cyan-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600']; const sg = staffGrads[a.email.charCodeAt(0) % staffGrads.length]; return (<button key={a.id} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(a); }} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors w-full text-left"><div className={`w-8 h-8 rounded-full bg-gradient-to-br ${sg} flex items-center justify-center text-white font-black text-sm uppercase flex-shrink-0`}>{a.email.charAt(0)}</div><p className="text-sm font-medium text-gray-700 truncate">{a.email}</p></button>); })}</div>
                                   {hasMore && (
                                     <button 
                                       onClick={() => setExpandedManagers(prev => ({...prev, [m.id]: !prev[m.id]}))}
@@ -1346,8 +1354,29 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         <div className="max-w-6xl mx-auto">
           <button onClick={() => { setSelectedAgentProfile(null); setAgentProfileLeads([]); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to Dashboard</button>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-1">{p.email}</h2>
-            <p className="text-gray-500 mb-6">Staff Performance Overview</p>
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0 shadow-md">
+                {p.email.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                {p.full_name && <h2 className="text-2xl font-extrabold text-gray-900 leading-tight">{p.full_name}</h2>}
+                <p className={`${p.full_name ? 'text-sm text-gray-500 font-medium' : 'text-2xl font-extrabold text-gray-900'} flex items-center gap-1.5`}>
+                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  {p.email}
+                </p>
+                {p.contact_number ? (
+                  <a href={`tel:${p.contact_number}`} className="inline-flex items-center gap-1.5 mt-1.5 text-sm text-indigo-600 font-bold hover:text-indigo-800 transition-colors">
+                    <Phone className="w-4 h-4" />
+                    {p.contact_number}
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    ⚠ No contact number
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4">Staff Performance Overview</p>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Total</p><p className="text-2xl font-black text-gray-800">{p.total}</p></div>
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center"><p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Called</p><p className="text-2xl font-black text-blue-700">{p.called}</p></div>
@@ -1696,6 +1725,108 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         {activeTab === 'feedback' && renderFeedbackTab()}
       </main>
       {renderFeedbackModal()}
+
+      {/* Staff Contact Popup — triggered from Manager Directory team cards */}
+      {viewingStaffContact && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setViewingStaffContact(null)}
+          />
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
+            {/* Gradient avatar header */}
+            {(() => {
+              const sc = viewingStaffContact;
+              const gradients = ['from-blue-500 to-indigo-600','from-violet-500 to-purple-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600'];
+              const grad = gradients[sc.email.charCodeAt(0) % gradients.length];
+              return (
+                <>
+                  <div className={`bg-gradient-to-br ${grad} p-6 text-center relative`}>
+                    <button
+                      onClick={() => setViewingStaffContact(null)}
+                      className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-2xl uppercase mx-auto mb-3 shadow-inner">
+                      {sc.email.charAt(0)}
+                    </div>
+                    {sc.full_name ? (
+                      <>
+                        <h3 className="text-xl font-extrabold text-white leading-tight">{sc.full_name}</h3>
+                        <p className="text-white/70 text-sm mt-0.5">{sc.email}</p>
+                      </>
+                    ) : (
+                      <h3 className="text-xl font-extrabold text-white leading-tight">{sc.email}</h3>
+                    )}
+                    <span className="inline-block mt-2 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full capitalize">
+                      {sc.role === 'manager' ? 'Manager' : 'Staff'}
+                    </span>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    {/* Email */}
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Email</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{sc.email}</p>
+                      </div>
+                    </div>
+
+                    {/* Contact Number */}
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Phone className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Contact Number</p>
+                        {sc.contact_number ? (
+                          <a
+                            href={`tel:${sc.contact_number}`}
+                            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                          >
+                            {sc.contact_number}
+                          </a>
+                        ) : (
+                          <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
+                            ⚠ Not set yet
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Manager */}
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Manager</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{sc.manager_email || '—'}</p>
+                      </div>
+                    </div>
+
+                    {sc.contact_number && (
+                      <a
+                        href={`tel:${sc.contact_number}`}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-[0.98]"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Call {sc.full_name ? sc.full_name.split(' ')[0] : sc.email.split('@')[0]}
+                      </a>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
+
   )
 }

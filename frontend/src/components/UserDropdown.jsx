@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabase';
 import { User, KeyRound, LogOut, X, Eye, EyeOff } from 'lucide-react';
+import ProfilePage from './ProfilePage';
 
 export default function UserDropdown({ userEmail, userRole, onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
+
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -104,8 +107,11 @@ export default function UserDropdown({ userEmail, userRole, onLogout }) {
               )}
             </div>
             
-            <button disabled className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-indigo-300 opacity-50 cursor-not-allowed text-left group transition-colors">
-              <User className="w-5 h-5 text-indigo-300" /> 
+            <button
+              onClick={() => { setIsProfileModalOpen(true); setIsOpen(false); }}
+              className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-indigo-200 hover:text-white hover:bg-white/5 cursor-pointer text-left group transition-colors w-full"
+            >
+              <User className="w-5 h-5 text-indigo-300 group-hover:text-white transition-colors" />
               <span>Your Profile</span>
             </button>
 
@@ -123,6 +129,14 @@ export default function UserDropdown({ userEmail, userRole, onLogout }) {
           </div>
         )}
       </div>
+
+      {isProfileModalOpen && (
+        <ProfilePage
+          userEmail={userEmail}
+          userRole={userRole}
+          onClose={() => setIsProfileModalOpen(false)}
+        />
+      )}
 
       {isPasswordModalOpen && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">

@@ -112,6 +112,9 @@ export function useAdminData(userEmail, userRole) {
       agentsList.forEach(agent => {
         statsMap[agent.email] = {
           email: agent.email,
+          full_name: agent.full_name || null,
+          contact_number: agent.contact_number || null,
+          manager_email: agent.manager_email || null,
           manager: agent.manager_email || 'Unassigned',
           total: 0, accepted: 0, pending: 0, called: 0, whatsapp: 0, rejected: 0, thinking: 0, invalid: 0
         }
