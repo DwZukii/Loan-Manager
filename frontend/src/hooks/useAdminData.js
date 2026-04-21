@@ -36,27 +36,25 @@ export function useAdminData(userEmail, userRole) {
 
       const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
 
-      const [profilesRes, feedbackRes, ...countResults] = await Promise.all([
+      const [profilesRes, feedbackRes, countsRes] = await Promise.all([
         supabase.from('profiles').select('*'),
         supabase.from('feedback').select('*').order('created_at', { ascending: false }),
-        ...setKeys.map(set =>
-          supabase.from('leads')
-            .select('*', { count: 'exact', head: true })
-            .eq('assigned_to', 'unassigned')
-            .eq('pool_owner', userEmail)
-            .eq('lead_set', set)
-        )
+        supabase.rpc('get_set_counts', { p_owner: userEmail }) // Replaces looping 4 count queries
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
       if (feedbackRes.error) throw feedbackRes.error;
-      countResults.forEach(res => { if (res.error) throw res.error; });
+      if (countsRes.error) throw countsRes.error;
 
       const profilesData = profilesRes.data || [];
       const allFeedback = feedbackRes.data || [];
+      const countsData = countsRes.data || [];
 
       const counts = {};
-      setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
+      setKeys.forEach(set => { counts[set] = 0; });
+      countsData.forEach(row => {
+        if (counts[row.lead_set] !== undefined) counts[row.lead_set] = Number(row.set_count);
+      });
 
       const managersList = profilesData.filter(p => p.role === 'manager')
       const agentsList = profilesData.filter(p => p.role === 'agent')
@@ -69,12 +67,7 @@ export function useAdminData(userEmail, userRole) {
       }
 
       const dependentPromises = [
-        Promise.all(managersList.map(manager =>
-          supabase.from('leads')
-            .select('*', { count: 'exact', head: true })
-            .eq('assigned_to', 'unassigned')
-            .eq('pool_owner', manager.email)
-        ))
+        supabase.rpc('get_manager_unassigned_counts') // Gets all unassigned pools across all managers in 1 call
       ];
 
       if (teamEmails.length > 0) {
@@ -94,15 +87,22 @@ export function useAdminData(userEmail, userRole) {
       const groupedStatsRes = teamEmails.length > 0 ? dependentResults[1] : null;
       const activeDataRes = teamEmails.length > 0 ? dependentResults[2] : null;
 
-      managerCountResults.forEach(res => { if (res.error) throw res.error; });
+      if (managerCountResults.error) throw managerCountResults.error;
       if (groupedStatsRes?.error) throw groupedStatsRes.error;
       if (activeDataRes?.error) throw activeDataRes.error;
 
+      const unassignedCountsByManager = {};
+      if (managerCountResults.data) {
+        managerCountResults.data.forEach(row => {
+          unassignedCountsByManager[row.manager_email] = Number(row.unassigned_count);
+        });
+      }
+
       const mStatsMap = {};
-      managersList.forEach((manager, i) => {
+      managersList.forEach((manager) => {
         mStatsMap[manager.email] = {
           email: manager.email,
-          unassigned_pool: managerCountResults[i].count || 0,
+          unassigned_pool: unassignedCountsByManager[manager.email] || 0,
           total_agents: agentsList.filter(a => a.manager_email === manager.email).length
         }
       });

@@ -14,10 +14,10 @@ export default function Login({ onLogin }) {
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
     if (authError) { setErrorMsg(authError.message); setIsLoading(false); return }
 
-    const { data: profileData, error: profileError } = await supabase.from('profiles').select('role').eq('email', email).single()
+    const { data: profileData, error: profileError } = await supabase.from('profiles').select('role, contact_number').eq('email', email).single()
     if (profileError || !profileData) { setErrorMsg("Account found, but no role assigned in the directory. Contact Admin."); setIsLoading(false); return }
 
-    onLogin(profileData.role, email)
+    onLogin(profileData.role, email, profileData.contact_number)
     setIsLoading(false)
   }
 

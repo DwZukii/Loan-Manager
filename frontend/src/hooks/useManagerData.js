@@ -36,34 +36,31 @@ export function useManagerData(userEmail) {
 
       const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
 
-      const [profilesRes, adminLeadsRes, ...countResults] = await Promise.all([
-        supabase.from('profiles').select('*'),
+      const [profilesRes, adminLeadsRes, countsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('manager_email', userEmail), // Fetch only my team
         supabase.from('leads')
           .select('id, lead_set')
           .eq('pool_owner', userEmail)
           .eq('assigned_to', 'unassigned')
           .eq('is_reviewed', false),
-        ...setKeys.map(set =>
-          supabase.from('leads')
-            .select('*', { count: 'exact', head: true })
-            .eq('assigned_to', 'unassigned')
-            .eq('pool_owner', userEmail)
-            .eq('lead_set', set)
-        )
+        supabase.rpc('get_set_counts', { p_owner: userEmail }) // Bulk fetch unassigned pool counts
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
       if (adminLeadsRes.error) throw adminLeadsRes.error;
-      countResults.forEach(res => { if (res.error) throw res.error; });
+      if (countsRes.error) throw countsRes.error;
 
-      const profilesData = profilesRes.data;
-      const adminLeadsData = adminLeadsRes.data;
+      const myAgents = profilesRes.data || [];
+      const adminLeadsData = adminLeadsRes.data || [];
+      const countsData = countsRes.data || [];
 
-      const myAgents = profilesData ? profilesData.filter(p => p.manager_email === userEmail) : []
       const teamEmails = myAgents.map(p => p.email)
 
       const counts = {};
-      setKeys.forEach((set, i) => { counts[set] = countResults[i].count || 0; });
+      setKeys.forEach(set => { counts[set] = 0; });
+      countsData.forEach(row => {
+        if (counts[row.lead_set] !== undefined) counts[row.lead_set] = Number(row.set_count);
+      });
 
       const statsMap = {};
       myAgents.forEach(agent => {

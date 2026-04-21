@@ -25,40 +25,27 @@ export default function App() {
   const [isCheckingProfile, setIsCheckingProfile] = useState(true) // true until first check resolves
 
 
-  const checkProfileCompleteness = async (email, role) => {
-    setIsCheckingProfile(true)
-    if (role === 'super_admin') {
-      setIsProfileComplete(true)
-      setIsCheckingProfile(false)
-      return
-    }
-    const { data } = await supabase
-      .from('profiles')
-      .select('contact_number')
-      .eq('email', email)
-      .single()
-    if (data && data.contact_number && data.contact_number.trim() !== '') {
-      setIsProfileComplete(true)
-    } else {
-      setIsProfileComplete(false)
-    }
-    setIsCheckingProfile(false)
-  }
-
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, contact_number')
           .eq('email', session.user.email)
           .single()
         if (profileData) {
           setUserRole(profileData.role)
           setUserEmail(session.user.email)
-          await checkProfileCompleteness(session.user.email, profileData.role)
+          if (profileData.role === 'super_admin') {
+            setIsProfileComplete(true)
+          } else {
+            setIsProfileComplete(!!(profileData.contact_number && profileData.contact_number.trim() !== ''))
+          }
+          setIsCheckingProfile(false)
         }
+      } else {
+        setIsCheckingProfile(false)
       }
       setIsCheckingAuth(false)
     }
@@ -76,10 +63,16 @@ export default function App() {
     setIsCheckingProfile(true)
   }
 
-  const handleLogin = async (role, email) => {
+  const handleLogin = (role, email, contact_number) => {
     setUserRole(role)
     setUserEmail(email)
-    await checkProfileCompleteness(email, role)
+    setIsCheckingProfile(true)
+    if (role === 'super_admin') {
+      setIsProfileComplete(true)
+    } else {
+      setIsProfileComplete(!!(contact_number && contact_number.trim() !== ''))
+    }
+    setIsCheckingProfile(false)
   }
 
   const handleGateSave = async () => {
