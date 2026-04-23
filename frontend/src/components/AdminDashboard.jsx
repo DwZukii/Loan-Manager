@@ -4,14 +4,16 @@ import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail } from 'lucide-react'
+import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail, Paperclip, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminData } from '../hooks/useAdminData'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const queryClient = useQueryClient();
   const { data } = useAdminData(userEmail, userRole);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Helper for notification icons
   const getStatusIcon = (status) => {
@@ -36,6 +38,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const [activeTab, setActiveTab] = useState('overview') 
   const [isNotifPanelOpen, setIsNotifPanelOpen] = useState(false)
+  const [expandedStaffCards, setExpandedStaffCards] = useState({})
   const [managerSearch, setManagerSearch] = useState('')
   const [staffSearch, setStaffSearch] = useState('')
   const [globalStaffSearch, setGlobalStaffSearch] = useState('')
@@ -147,7 +150,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleDeleteFeedback = async (id) => {
-    if (window.confirm("Delete this report?")) {
+    if (await confirm("Delete this report?")) {
       queryClient.setQueryData(['adminData', userEmail], (old) => {
         if (!old) return null;
         return { ...old, allFeedback: old.allFeedback.filter(f => f.id !== id) };
@@ -403,7 +406,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     }
     
     const leadsToInsert = trulyFreshNumbers.map(phone => ({ 
-      phone_number: phone, assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null, is_reviewed: true, lead_set: uploadSet, pool_owner: userEmail 
+      phone_number: phone, assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null, admin_reviewed: true, manager_reviewed: true, lead_set: uploadSet, pool_owner: userEmail 
     }));
 
     // Insert in batches of 500 to avoid overloading the DB with one giant request
@@ -468,7 +471,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const updateChunkSize = 500;
     let transferError = null;
     for (let i = 0; i < ids.length; i += updateChunkSize) {
-      const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, is_reviewed: false }).in('id', ids.slice(i, i + updateChunkSize));
+      const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, manager_reviewed: false }).in('id', ids.slice(i, i + updateChunkSize));
       if (error) { transferError = error; break; }
     }
 
@@ -480,7 +483,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleClearPool = async () => {
-    if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
+    if (await confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
       setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
       if (!error) { toast.success(`Cleared ${assignSet}.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
@@ -490,39 +493,49 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const handleDismissNotification = async (id) => {
     const leadToDismiss = activeLeads.find(lead => lead.id === id); 
-    if (!window.confirm("Dismiss this activity and permanently delete any attached files?")) return;
-    if (leadToDismiss && leadToDismiss.document_url) {
+    if (!(await confirm("Dismiss this notification?"))) return;
+
+    queryClient.setQueryData(['adminData', userEmail], (old) => old ? { ...old, activeLeads: old.activeLeads.filter(l => l.id !== id) } : null);
+
+    // Only physically delete the file if the manager has already dismissed too.
+    // If manager hasn't reviewed yet, preserve the file so they can still access it.
+    const managerAlsoReviewed = leadToDismiss?.manager_reviewed === true;
+    if (managerAlsoReviewed && leadToDismiss?.document_url) {
       const fileName = leadToDismiss.document_url.split('/').pop();
       await supabase.storage.from('documents').remove([fileName]);
+      await supabase.from('leads').update({ admin_reviewed: true, document_url: null }).eq('id', id);
+    } else {
+      await supabase.from('leads').update({ admin_reviewed: true }).eq('id', id);
     }
-    queryClient.setQueryData(['adminData', userEmail], (old) => old ? { ...old, activeLeads: old.activeLeads.filter(l => l.id !== id) } : null);
-    await supabase.from('leads').update({ is_reviewed: true, document_url: null }).eq('id', id);
   }
 
   const handleDismissAllNotifications = async () => {
     if (activeLeads.length === 0) return;
-    if (!window.confirm(`Are you sure you want to dismiss ALL ${activeLeads.length} notifications?`)) return;
-    if (!window.confirm("CRITICAL: This will permanently delete ALL associated files and notes for these notifications. Proceed?")) return;
+    if (!(await confirm(`Dismiss ALL ${activeLeads.length} notifications?`))) return;
 
     try {
-      // 1. Identify files to delete
-      const filesToDelete = activeLeads
-        .filter(lead => lead.document_url)
-        .map(lead => lead.document_url.split('/').pop());
-
+      // Only delete files from storage where manager has already reviewed.
+      // For leads the manager hasn't dismissed yet, preserve the file.
+      const safeToDelete = activeLeads.filter(l => l.document_url && l.manager_reviewed);
+      const filesToDelete = safeToDelete.map(l => l.document_url.split('/').pop());
       if (filesToDelete.length > 0) {
         await supabase.storage.from('documents').remove(filesToDelete);
       }
 
-      // 2. Update database in chunks
-      const leadIds = activeLeads.map(l => l.id);
-      if (leadIds.length > 0) {
-        const updateChunkSize = 500;
-        for (let i = 0; i < leadIds.length; i += updateChunkSize) {
-          await supabase.from('leads')
-            .update({ is_reviewed: true, document_url: null })
-            .in('id', leadIds.slice(i, i + updateChunkSize));
-        }
+      // For leads where manager already reviewed: null out document_url too
+      const safeIds = safeToDelete.map(l => l.id);
+      const otherIds = activeLeads.filter(l => !l.manager_reviewed || !l.document_url).map(l => l.id);
+
+      const updateChunkSize = 500;
+      for (let i = 0; i < safeIds.length; i += updateChunkSize) {
+        await supabase.from('leads')
+          .update({ admin_reviewed: true, document_url: null })
+          .in('id', safeIds.slice(i, i + updateChunkSize));
+      }
+      for (let i = 0; i < otherIds.length; i += updateChunkSize) {
+        await supabase.from('leads')
+          .update({ admin_reviewed: true })
+          .in('id', otherIds.slice(i, i + updateChunkSize));
       }
 
       queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
@@ -532,7 +545,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleArchiveDeadLeads = async () => {
-    if (!window.confirm("WARNING: This will permanently permanently incinerate all 'Rejected' leads older than 30 days and safely delete their associated files from storage. This cannot be undone. Proceed?")) return;
+    if (!(await confirm("WARNING: This will permanently permanently incinerate all 'Rejected' leads older than 30 days and safely delete their associated files from storage. This cannot be undone. Proceed?"))) return;
     setIsArchiving(true);
     setArchiveStatus("Scanning for dead leads...");
     
@@ -590,7 +603,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handlePurgeInvalidLeads = async () => {
-    if (!window.confirm("WARNING: This will permanently delete ALL leads marked as 'Invalid Number' across the entire database. This cannot be undone. Proceed?")) return;
+    if (!(await confirm("WARNING: This will permanently delete ALL leads marked as 'Invalid Number' across the entire database. This cannot be undone. Proceed?"))) return;
     setIsPurging(true);
     setPurgeStatus("Identifying invalid numbers...");
     
@@ -629,7 +642,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
-    if (pendingCount === 0) return; if (!window.confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`)) return
+    if (pendingCount === 0) return; if (!(await confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`))) return;
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned' }).eq('assigned_to', agentEmail).eq('status', 'Pending')
     if (!error) { toast.success(`Revoked ${pendingCount} leads.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
@@ -641,7 +654,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleRevokeSingleLead = async (leadId) => {
-    if (!window.confirm("Return this single number to the Unassigned Pool?")) return
+    if (!(await confirm("Return this single number to the Unassigned Pool?"))) return;
     
     const leadToRevoke = agentProfileLeads.find(l => l.id === leadId);
     if (leadToRevoke && leadToRevoke.document_url) {
@@ -813,11 +826,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
         <div className="flex justify-between items-center mb-6 relative z-10">
           <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
-            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span> 
+            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span>
             Global Activity Feed
           </h2>
           {activeLeads.length > 0 && (
-            <button 
+            <button
               onClick={handleDismissAllNotifications}
               className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-xl hover:bg-amber-200 transition text-sm border border-amber-200"
             >
@@ -825,23 +838,94 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </button>
           )}
         </div>
-        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10">No active notes or files to review.</p> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 relative z-10">
-            {activeLeads.map(lead => (
-              <div key={lead.id} className="border border-amber-100 rounded-xl p-5 bg-amber-50/30 relative group shadow-sm hover:shadow transition-shadow">
-                <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-gray-100">✕ Dismiss</button>
-                <div className="flex justify-between items-start mb-3 pr-20">
-                  <h3 className="font-black text-gray-800 text-lg">{lead.phone_number}</h3>
-                  <span className={`text-xs px-3 py-1 rounded-full font-bold shadow-sm border ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700 border-green-200' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-700 border-gray-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>{lead.status}</span>
-                </div>
-                <p className="text-xs text-amber-700 mb-3 font-bold tracking-wide uppercase">Staff: {lead.assigned_to} • <span className="text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                {lead.agent_notes && <div className="bg-white border border-amber-100 rounded-lg p-4 text-sm text-gray-700 italic mb-3 shadow-sm">"{lead.agent_notes}"</div>}
-                {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 text-sm font-bold hover:text-blue-800 transition-colors bg-white px-3 py-1.5 rounded-lg border border-amber-100 shadow-sm">📎 View Document</a>}
-              </div>
-            ))}
-          </div>
-        )}
+        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10">No active notes or files to review.</p> : (() => {
+          const grouped = activeLeads.reduce((acc, lead) => {
+            const key = lead.assigned_to;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(lead);
+            return acc;
+          }, {});
+          const sortedGroups = Object.entries(grouped).sort(([, a], [, b]) => {
+            const aHasDoc = a.some(l => l.document_url);
+            const bHasDoc = b.some(l => l.document_url);
+            if (aHasDoc && !bHasDoc) return -1;
+            if (!aHasDoc && bHasDoc) return 1;
+            return 0;
+          });
+          return (
+            <div className="space-y-3 relative z-10">
+              {sortedGroups.map(([staffEmail, leads]) => {
+                const isOpen = expandedStaffCards[staffEmail];
+                const hasDoc = leads.some(l => l.document_url);
+                const docCount = leads.filter(l => l.document_url).length;
+                const noteCount = leads.filter(l => l.agent_notes && l.agent_notes.trim() !== '').length;
+                const acceptedCount = leads.filter(l => l.status === 'Accepted').length;
+                return (
+                  <div key={staffEmail} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
+                    <button
+                      onClick={() => setExpandedStaffCards(prev => ({ ...prev, [staffEmail]: !prev[staffEmail] }))}
+                      className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors ${hasDoc ? 'bg-indigo-50 hover:bg-indigo-100/70' : 'bg-amber-50/60 hover:bg-amber-50'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>
+                          {staffEmail.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-black text-gray-900 text-sm">{staffEmail}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-500 font-medium">{leads.length} notification{leads.length !== 1 ? 's' : ''}</span>
+                            {docCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                                <Paperclip className="w-2.5 h-2.5" /> {docCount} file{docCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {noteCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                                <FileText className="w-2.5 h-2.5" /> {noteCount} note{noteCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {acceptedCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> {acceptedCount} accepted
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-black px-3 py-1.5 rounded-full ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
+                          {leads.length}
+                        </span>
+                        <span className={`text-gray-400 transition-transform duration-200 inline-block ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="grid grid-cols-2 gap-px bg-gray-100">
+                        {leads.map(lead => (
+                          <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
+                            <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
+                            <div className="flex items-start justify-between pr-20 mb-2">
+                              <div className="flex items-center gap-2">
+                                {lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}
+                                <span className="font-black text-gray-900">{lead.phone_number}</span>
+                                <span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span>
+                              </div>
+                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
+                            </div>
+                            {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
+                            {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">📎 View Document</a>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
+
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 relative overflow-hidden flex flex-col justify-between">
@@ -1626,6 +1710,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-x-hidden">
+      <ConfirmDialog />
       {isNotifPanelOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6">
           <div className="w-full max-w-3xl rounded-3xl bg-white border border-white/70 shadow-2xl overflow-hidden">

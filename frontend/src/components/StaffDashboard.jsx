@@ -5,10 +5,12 @@ import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, Mess
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStaffData } from '../hooks/useStaffData'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function StaffDashboard({ userEmail, onLogout }) {
   const queryClient = useQueryClient()
   const { data: leads = [], isLoading } = useStaffData(userEmail)
+  const { confirm, ConfirmDialog } = useConfirm()
   
   const [activeTab, setActiveTab] = useState('leads') 
   const [selectedLead, setSelectedLead] = useState(null)
@@ -81,6 +83,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
 
   const renderFeedbackModal = () => (
     <>
+      <ConfirmDialog />
       <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-50 bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
         <Bug className="w-6 h-6" />
         <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
@@ -158,12 +161,12 @@ Balas *“YA”* untuk semakan 🆓
     queryClient.setQueryData(['staffData', userEmail], (oldData) => 
       oldData ? oldData.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead) : []
     )
-    await supabase.from('leads').update({ status: newStatus, is_reviewed: false }).eq('id', id)
+    await supabase.from('leads').update({ status: newStatus, admin_reviewed: false, manager_reviewed: false }).eq('id', id)
   }
 
   const handleSaveNote = async () => {
     setIsSavingNote(true)
-    const { error } = await supabase.from('leads').update({ agent_notes: currentNote, is_reviewed: false }).eq('id', selectedLead.id)
+    const { error } = await supabase.from('leads').update({ agent_notes: currentNote, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     if (!error) { 
       queryClient.setQueryData(['staffData', userEmail], (oldData) => 
         oldData ? oldData.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead) : []
@@ -198,7 +201,7 @@ Balas *“YA”* untuk semakan 🆓
     }
     
     const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName)
-    await supabase.from('leads').update({ document_url: publicUrlData.publicUrl, is_reviewed: false }).eq('id', selectedLead.id)
+    await supabase.from('leads').update({ document_url: publicUrlData.publicUrl, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     
     queryClient.setQueryData(['staffData', userEmail], (old) => 
       old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead) : []
@@ -209,12 +212,12 @@ Balas *“YA”* untuk semakan 🆓
   }
 
   const handleDeleteFile = async () => {
-    if (!window.confirm("Permanently delete this file?")) return; 
+    if (!(await confirm("Permanently delete this file?"))) return; 
     setUploadingFile(true) 
     
     const fileName = selectedLead.document_url.split('/').pop(); 
     await supabase.storage.from('documents').remove([fileName])
-    await supabase.from('leads').update({ document_url: null, is_reviewed: false }).eq('id', selectedLead.id)
+    await supabase.from('leads').update({ document_url: null, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     
     queryClient.setQueryData(['staffData', userEmail], (old) => 
       old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead) : []
@@ -251,7 +254,8 @@ Balas *“YA”* untuk semakan 🆓
       status: 'Accepted', 
       agent_notes: manualNote, 
       document_url: finalUrl, 
-      is_reviewed: false, 
+      admin_reviewed: false, 
+      manager_reviewed: false,
       lead_set: 'External / Manual' 
     }]);
     

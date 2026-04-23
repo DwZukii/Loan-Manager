@@ -42,7 +42,7 @@ export function useManagerData(userEmail) {
           .select('id, lead_set')
           .eq('pool_owner', userEmail)
           .eq('assigned_to', 'unassigned')
-          .eq('is_reviewed', false),
+          .eq('manager_reviewed', false),
         supabase.rpc('get_set_counts', { p_owner: userEmail }) // Bulk fetch unassigned pool counts
       ]);
 
@@ -77,11 +77,12 @@ export function useManagerData(userEmail) {
         dependentPromises.push(supabase.rpc('get_agent_stats', { agent_emails: teamEmails }));
         dependentPromises.push(
           supabase.from('leads')
-            .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set')
+            .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, admin_reviewed')
             .in('assigned_to', teamEmails)
-            .eq('is_reviewed', false)
+            .eq('manager_reviewed', false)
+            .or('status.eq.Accepted,agent_notes.neq.,document_url.not.is.null')
             .order('id', { ascending: false })
-            .limit(50)
+            .limit(100)
         );
       }
       
@@ -108,21 +109,29 @@ export function useManagerData(userEmail) {
 
       let workedOnLeads = [];
       if (activeDataRes && activeDataRes.data) {
-        workedOnLeads = activeDataRes.data.filter(lead =>
-          lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
-        )
+        workedOnLeads = activeDataRes.data
+          .filter(lead =>
+            lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
+          )
+          .sort((a, b) => {
+            // Document uploads always float to the top
+            if (a.document_url && !b.document_url) return -1;
+            if (!a.document_url && b.document_url) return 1;
+            return 0; // preserve newest-first order from DB
+          })
       }
 
       let adminNotifs = [];
       if (adminLeadsData && adminLeadsData.length > 0) {
         const sets = [...new Set(adminLeadsData.map(l => l.lead_set))];
         sets.forEach(setName => {
-          const count = adminLeadsData.filter(l => l.lead_set === setName).length;
+          const leadsForSet = adminLeadsData.filter(l => l.lead_set === setName);
           adminNotifs.push({
             id: 'admin-' + setName,
-            message: `Admin transferred ${count} leads into your pool (${setName}).`,
+            message: `Admin transferred ${leadsForSet.length} leads into your pool (${setName}).`,
             time: 'Just Now',
-            type: 'system'
+            type: 'admin_drop',  // must match the 'admin_drop' check in rendering
+            ids: leadsForSet.map(l => l.id) // needed by handleDismissAdminDrop to update the DB
           });
         });
       }

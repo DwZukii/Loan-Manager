@@ -72,20 +72,30 @@ export function useAdminData(userEmail, userRole) {
 
       if (teamEmails.length > 0) {
         dependentPromises.push(supabase.rpc('get_agent_stats', { agent_emails: teamEmails }));
-        dependentPromises.push(
-          supabase.from('leads')
-            .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set')
-            .in('assigned_to', teamEmails)
-            .eq('is_reviewed', false)
-            .order('id', { ascending: false })
-            .limit(50)
-        );
+      } else {
+        dependentPromises.push(Promise.resolve({ data: null }));
       }
+
+      let leadsQuery = supabase.from('leads')
+        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, manager_reviewed')
+        .eq('admin_reviewed', false)
+        .or('status.eq.Accepted,agent_notes.neq.,document_url.not.is.null')
+        .order('id', { ascending: false })
+        .limit(100);
+
+      if (userRole === 'super_admin') {
+        leadsQuery = leadsQuery.neq('assigned_to', 'unassigned');
+      } else if (teamEmails.length > 0) {
+        leadsQuery = leadsQuery.in('assigned_to', teamEmails);
+      } else {
+        leadsQuery = Promise.resolve({ data: null });
+      }
+      dependentPromises.push(leadsQuery);
 
       const dependentResults = await Promise.all(dependentPromises);
       const managerCountResults = dependentResults[0];
-      const groupedStatsRes = teamEmails.length > 0 ? dependentResults[1] : null;
-      const activeDataRes = teamEmails.length > 0 ? dependentResults[2] : null;
+      const groupedStatsRes = dependentResults[1];
+      const activeDataRes = dependentResults[2];
 
       if (managerCountResults.error) throw managerCountResults.error;
       if (groupedStatsRes?.error) throw groupedStatsRes.error;
@@ -137,9 +147,16 @@ export function useAdminData(userEmail, userRole) {
 
       let activeLeads = [];
       if (activeDataRes && activeDataRes.data) {
-        activeLeads = activeDataRes.data.filter(lead =>
-          lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
-        )
+        activeLeads = activeDataRes.data
+          .filter(lead =>
+            lead.status === 'Accepted' || (lead.agent_notes && lead.agent_notes.trim() !== '') || lead.document_url !== null
+          )
+          .sort((a, b) => {
+            // Document uploads always float to the top
+            if (a.document_url && !b.document_url) return -1;
+            if (!a.document_url && b.document_url) return 1;
+            return 0; // preserve newest-first order from DB
+          })
       }
 
       return {

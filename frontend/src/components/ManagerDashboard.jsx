@@ -4,14 +4,16 @@ import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { Bug, X, Target, BarChart3, BookOpen, LogOut, Menu, Bell, Sparkles, Users, Lightbulb, MessageSquare, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail } from 'lucide-react'
+import { Bug, X, Target, BarChart3, BookOpen, LogOut, Menu, Bell, Sparkles, Users, Lightbulb, MessageSquare, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail, Paperclip, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useManagerData } from '../hooks/useManagerData'
+import { useConfirm } from '../hooks/useConfirm'
 
 export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const queryClient = useQueryClient();
   const { data } = useManagerData(userEmail);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Helper for notification icons
   const getStatusIcon = (status) => {
@@ -56,6 +58,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [isCreatingAcc, setIsCreatingAcc] = useState(false)
   const [accCreateStatus, setAccCreateStatus] = useState('')
   const [showNewAccPassword, setShowNewAccPassword] = useState(false)
+  const [expandedStaffCards, setExpandedStaffCards] = useState({})
 
 
   const [selectedAgentProfile, setSelectedAgentProfile] = useState(null)
@@ -365,7 +368,8 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       status: 'Pending', 
       agent_notes: '', 
       document_url: null, 
-      is_reviewed: true, 
+      admin_reviewed: true, 
+      manager_reviewed: true, 
       lead_set: uploadSet,
       pool_owner: userEmail 
     }));
@@ -418,7 +422,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleClearPool = async () => {
-    if (window.confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
+    if (await confirm(`Delete ALL unassigned numbers in ${assignSet}?`)) {
       setIsClearing(true);
       const { error } = await supabase.from('leads').delete().eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet); 
       if (!error) { toast.success(`Cleared ${assignSet}.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
@@ -428,16 +432,23 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
   const handleDismissNotification = async (id) => {
     const leadToDismiss = activeLeads.find(lead => lead.id === id); 
-    if (!window.confirm("Dismiss this activity and permanently delete any attached files?")) return;
-    if (leadToDismiss && leadToDismiss.document_url) {
-      const fileName = leadToDismiss.document_url.split('/').pop();
-      await supabase.storage.from('documents').remove([fileName]);
-    }
+    if (!(await confirm("Dismiss this notification?"))) return;
+
     queryClient.setQueryData(['managerData', userEmail], (oldData) => {
       if (!oldData) return null;
       return { ...oldData, activeLeads: oldData.activeLeads.filter(lead => lead.id !== id) };
     });
-    await supabase.from('leads').update({ is_reviewed: true, document_url: null }).eq('id', id);
+
+    // Only physically delete the file if the admin has already dismissed too.
+    // If admin hasn't reviewed yet, preserve the file so they can still access it.
+    const adminAlsoReviewed = leadToDismiss?.admin_reviewed === true;
+    if (adminAlsoReviewed && leadToDismiss?.document_url) {
+      const fileName = leadToDismiss.document_url.split('/').pop();
+      await supabase.storage.from('documents').remove([fileName]);
+      await supabase.from('leads').update({ manager_reviewed: true, document_url: null }).eq('id', id);
+    } else {
+      await supabase.from('leads').update({ manager_reviewed: true }).eq('id', id);
+    }
   }
 
   const handleDismissAdminDrop = async (notifId, ids) => {
@@ -445,33 +456,36 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       if (!oldData) return null;
       return { ...oldData, managerNotifications: oldData.managerNotifications.filter(notif => notif.id !== notifId) };
     });
-    await supabase.from('leads').update({ is_reviewed: true }).in('id', ids);
+    await supabase.from('leads').update({ manager_reviewed: true }).in('id', ids);
   }
 
   const handleDismissAllNotifications = async () => {
     if (activeLeads.length === 0) return;
-    if (!window.confirm(`Are you sure you want to dismiss ALL ${activeLeads.length} notifications?`)) return;
-    if (!window.confirm("CRITICAL: This will permanently delete ALL associated files and notes for these notifications. Proceed?")) return;
+    if (!(await confirm(`Dismiss ALL ${activeLeads.length} notifications?`))) return;
 
     try {
-      // 1. Identify files to delete
-      const filesToDelete = activeLeads
-        .filter(lead => lead.document_url)
-        .map(lead => lead.document_url.split('/').pop());
-
+      // Only delete files from storage where admin has already reviewed.
+      // For leads the admin hasn't dismissed yet, preserve the file.
+      const realLeads = activeLeads.filter(l => l.id && typeof l.id === 'number');
+      const safeToDelete = realLeads.filter(l => l.document_url && l.admin_reviewed);
+      const filesToDelete = safeToDelete.map(l => l.document_url.split('/').pop());
       if (filesToDelete.length > 0) {
         await supabase.storage.from('documents').remove(filesToDelete);
       }
 
-      // 2. Update database in chunks (only for standard leads, exclude system alerts if any)
-      const leadIds = activeLeads.filter(l => l.id && typeof l.id === 'number').map(l => l.id);
-      if (leadIds.length > 0) {
-        const updateChunkSize = 500;
-        for (let i = 0; i < leadIds.length; i += updateChunkSize) {
-          await supabase.from('leads')
-            .update({ is_reviewed: true, document_url: null })
-            .in('id', leadIds.slice(i, i + updateChunkSize));
-        }
+      const safeIds = safeToDelete.map(l => l.id);
+      const otherIds = realLeads.filter(l => !l.admin_reviewed || !l.document_url).map(l => l.id);
+
+      const updateChunkSize = 500;
+      for (let i = 0; i < safeIds.length; i += updateChunkSize) {
+        await supabase.from('leads')
+          .update({ manager_reviewed: true, document_url: null })
+          .in('id', safeIds.slice(i, i + updateChunkSize));
+      }
+      for (let i = 0; i < otherIds.length; i += updateChunkSize) {
+        await supabase.from('leads')
+          .update({ manager_reviewed: true })
+          .in('id', otherIds.slice(i, i + updateChunkSize));
       }
 
       queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] });
@@ -481,7 +495,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleRevokeLeads = async (agentEmail, pendingCount) => {
-    if (pendingCount === 0) return; if (!window.confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`)) return
+    if (pendingCount === 0) return; if (!(await confirm(`Pull back ${pendingCount} pending numbers from ${agentEmail}?`))) return;
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned' }).eq('assigned_to', agentEmail).eq('status', 'Pending')
     if (!error) { toast.success(`Revoked ${pendingCount} leads.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
   }
@@ -493,7 +507,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   }
 
   const handleRevokeSingleLead = async (leadId) => {
-    if (!window.confirm("Return this single number to your Pool?")) return
+    if (!(await confirm("Return this single number to your Pool?"))) return;
     
     const leadToRevoke = agentProfileLeads.find(l => l.id === leadId);
     if (leadToRevoke && leadToRevoke.document_url) {
@@ -673,11 +687,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
         <div className="flex justify-between items-center mb-6 relative z-10">
           <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
-            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span> 
+            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span>
             My Team Activity & Notes
           </h2>
           {activeLeads.length > 0 && (
-            <button 
+            <button
               onClick={handleDismissAllNotifications}
               className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-xl hover:bg-amber-200 transition text-sm border border-amber-200"
             >
@@ -685,36 +699,104 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             </button>
           )}
         </div>
-        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10 text-center py-4">No active notes or files to review.</p> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 relative z-10">
-            {activeLeads.map(lead => {
-              if (lead.type === 'admin_drop') {
-                return (
-                  <div key={lead.id} className="border border-indigo-200 rounded-xl p-5 bg-indigo-50/50 relative group shadow-sm hover:shadow transition-shadow">
-                    <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100">✕ Dismiss</button>
-                    <div className="flex justify-between items-start mb-3 pr-20">
-                      <h3 className="font-black text-indigo-900 text-lg flex items-center gap-2">⚠️ System Alert</h3>
-                      <span className="text-xs px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-200 bg-indigo-100 text-indigo-800">{lead.status}</span>
-                    </div>
-                    <p className="text-sm text-indigo-800 font-bold">{lead.message}</p>
+        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10 text-center py-4">No active notes or files to review.</p> : (() => {
+          const systemAlerts = activeLeads.filter(l => l.type === 'admin_drop');
+          const staffLeads = activeLeads.filter(l => l.type !== 'admin_drop');
+          const grouped = staffLeads.reduce((acc, lead) => {
+            const key = lead.assigned_to;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(lead);
+            return acc;
+          }, {});
+          const sortedGroups = Object.entries(grouped).sort(([, a], [, b]) => {
+            const aHasDoc = a.some(l => l.document_url);
+            const bHasDoc = b.some(l => l.document_url);
+            if (aHasDoc && !bHasDoc) return -1;
+            if (!aHasDoc && bHasDoc) return 1;
+            return 0;
+          });
+          return (
+            <div className="space-y-3 relative z-10">
+              {systemAlerts.map(lead => (
+                <div key={lead.id} className="border border-indigo-200 rounded-2xl p-5 bg-indigo-50/50 relative group shadow-sm">
+                  <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100">✕ Dismiss</button>
+                  <div className="flex justify-between items-start mb-2 pr-20">
+                    <h3 className="font-black text-indigo-900 flex items-center gap-2">⚠️ System Alert</h3>
+                    <span className="text-xs px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-200 bg-indigo-100 text-indigo-800">{lead.status}</span>
                   </div>
-                )
-              }
-              return (
-                <div key={lead.id} className="border border-amber-100 rounded-xl p-5 bg-amber-50/30 relative group shadow-sm hover:shadow transition-shadow">
-                  <button onClick={() => handleDismissNotification(lead.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-gray-100">✕ Dismiss</button>
-                  <div className="flex justify-between items-start mb-3 pr-20">
-                    <h3 className="font-black text-gray-800 text-lg">{lead.phone_number}</h3>
-                    <span className={`text-xs px-3 py-1 rounded-full font-bold shadow-sm border ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700 border-green-200' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700 border-red-200' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-700 border-gray-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>{lead.status}</span>
-                  </div>
-                  <p className="text-xs text-amber-700 mb-3 font-bold tracking-wide uppercase">Staff: {lead.assigned_to} • <span className="text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                  {lead.agent_notes && <div className="bg-white border border-amber-100 rounded-lg p-4 text-sm text-gray-700 italic mb-3 shadow-sm">"{lead.agent_notes}"</div>}
-                  {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 text-sm font-bold hover:text-blue-800 transition-colors bg-white px-3 py-1.5 rounded-lg border border-amber-100 shadow-sm">📎 View Document</a>}
+                  <p className="text-sm text-indigo-800 font-bold">{lead.message}</p>
                 </div>
-              )
-            })}
-          </div>
-        )}
+              ))}
+              {sortedGroups.map(([staffEmail, leads]) => {
+                const isOpen = expandedStaffCards[staffEmail];
+                const hasDoc = leads.some(l => l.document_url);
+                const docCount = leads.filter(l => l.document_url).length;
+                const noteCount = leads.filter(l => l.agent_notes && l.agent_notes.trim() !== '').length;
+                const acceptedCount = leads.filter(l => l.status === 'Accepted').length;
+                return (
+                  <div key={staffEmail} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
+                    <button
+                      onClick={() => setExpandedStaffCards(prev => ({ ...prev, [staffEmail]: !prev[staffEmail] }))}
+                      className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors ${hasDoc ? 'bg-indigo-50 hover:bg-indigo-100/70' : 'bg-amber-50/60 hover:bg-amber-50'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>
+                          {staffEmail.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-black text-gray-900 text-sm">{staffEmail}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-500 font-medium">{leads.length} notification{leads.length !== 1 ? 's' : ''}</span>
+                            {docCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                                <Paperclip className="w-2.5 h-2.5" /> {docCount} file{docCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {noteCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                                <FileText className="w-2.5 h-2.5" /> {noteCount} note{noteCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {acceptedCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> {acceptedCount} accepted
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-black px-3 py-1.5 rounded-full ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
+                          {leads.length}
+                        </span>
+                        <span className={`text-gray-400 transition-transform duration-200 inline-block ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="grid grid-cols-2 gap-px bg-gray-100">
+                        {leads.map(lead => (
+                          <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
+                            <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
+                            <div className="flex items-start justify-between pr-20 mb-2">
+                              <div className="flex items-center gap-2">
+                                {lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}
+                                <span className="font-black text-gray-900">{lead.phone_number}</span>
+                                <span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span>
+                              </div>
+                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
+                            </div>
+                            {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
+                            {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">📎 View Document</a>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
 
@@ -1076,6 +1158,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
   const renderFeedbackModal = () => (
     <>
+      <ConfirmDialog />
       <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-[60] bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
         <Bug className="w-6 h-6" />
         <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
