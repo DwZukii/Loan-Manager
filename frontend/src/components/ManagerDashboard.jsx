@@ -333,7 +333,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     // so no existing duplicates are silently truncated from the results.
     const results = await Promise.all(
       chunks.map(chunk =>
-        supabase.from('leads').select('phone_number').in('phone_number', chunk).limit(chunk.length)
+        supabase.rpc('check_duplicate_phones', { phone_numbers: chunk })
       )
     );
 
