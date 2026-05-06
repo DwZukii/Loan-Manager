@@ -15,18 +15,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const { data } = useAdminData(userEmail, userRole);
   const { confirm, ConfirmDialog } = useConfirm();
 
-  // Helper for notification icons
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Accepted': return <CheckCircle2 className="w-6 h-6 text-emerald-500" />;
-      case 'Rejected': return <XCircle className="w-6 h-6 text-rose-500" />;
-      case 'Pending': return <Clock className="w-6 h-6 text-amber-500" />;
-      case 'Called (No Answer)': return <PhoneOff className="w-6 h-6 text-slate-500" />;
-      case 'WhatsApp Sent': return <MessageSquare className="w-6 h-6 text-green-500" />;
-      case 'Thinking': return <Brain className="w-6 h-6 text-indigo-500" />;
-      default: return <ClipboardList className="w-6 h-6 text-slate-400" />;
-    }
-  }
   
   const allFeedback = data?.allFeedback || [];
   const unassignedCounts = data?.unassignedCounts || { 'Set A': 0, 'Set B': 0, 'Set C': 0 };
@@ -37,8 +25,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const activeLeads = data?.activeLeads || [];
 
   const [activeTab, setActiveTab] = useState('overview') 
-  const [isNotifPanelOpen, setIsNotifPanelOpen] = useState(false)
-  const [expandedStaffCards, setExpandedStaffCards] = useState({})
+  const [expandedGroup, setExpandedGroup] = useState(null)
   const [managerSearch, setManagerSearch] = useState('')
   const [staffSearch, setStaffSearch] = useState('')
   const [globalStaffSearch, setGlobalStaffSearch] = useState('')
@@ -98,6 +85,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedManagers, setExpandedManagers] = useState({})
   const [viewingStaffContact, setViewingStaffContact] = useState(null)
+  const [deletingUser, setDeletingUser] = useState(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -205,6 +193,38 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const { error } = await supabase.from('profiles').update({ manager_email: newManagerEmail || null }).eq('email', agentEmail)
     if (!error) { queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) } 
   }
+
+  const handleDeleteUser = async (targetEmail) => {
+    const confirmed = await confirm(`WARNING: Are you sure you want to completely eradicate ${targetEmail} from the system? This will delete their account and reassign ALL their leads back to the unassigned pool. This cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingUser(targetEmail);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ emailToDelete: targetEmail })
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      
+      queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] });
+      setSelectedAgentProfile(null);
+      setAgentProfileLeads([]);
+      toast.success(`${targetEmail} deleted successfully`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeletingUser(null);
+    }
+  };
 
   // ── SHARED HELPERS ────────────────────────────────────────────────────────
 
@@ -384,9 +404,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     }
 
     // Fire all chunk queries in parallel instead of sequentially
+    // NOTE: Supabase defaults to 1000 rows max — explicitly set a high limit
+    // so no existing duplicates are silently truncated from the results.
     const results = await Promise.all(
       chunks.map(chunk =>
-        supabase.from('leads').select('phone_number').in('phone_number', chunk)
+        supabase.from('leads').select('phone_number').in('phone_number', chunk).limit(chunk.length)
       )
     );
 
@@ -416,7 +438,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       const batch = leadsToInsert.slice(i, i + insertChunkSize);
       const inserted = Math.min(i + insertChunkSize, leadsToInsert.length);
       setUploadStatus(`Pushing... ${inserted} / ${leadsToInsert.length} (Skipped ${rejectedCount} duplicates)`);
-      const { error } = await supabase.from('leads').insert(batch);
+      const { error } = await supabase.from('leads').insert(batch, { ignoreDuplicates: true });
       if (error) { insertError = error; break; }
     }
 
@@ -822,111 +844,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       </div>
       {transferStatus && <p className="text-sm font-bold text-blue-700 bg-blue-50 p-4 border border-blue-100 rounded-xl text-center shadow-sm">{transferStatus}</p>}
       
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-amber-200 mt-6 relative overflow-hidden flex flex-col">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
-        <div className="flex justify-between items-center mb-6 relative z-10">
-          <h2 className="text-2xl font-bold text-amber-900 flex items-center gap-3">
-            <span className="bg-amber-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-amber-300 flex-shrink-0"><Bell className="w-5 h-5" /></span>
-            Global Activity Feed
-          </h2>
-          {activeLeads.length > 0 && (
-            <button
-              onClick={handleDismissAllNotifications}
-              className="px-4 py-2 bg-amber-100 text-amber-700 font-bold rounded-xl hover:bg-amber-200 transition text-sm border border-amber-200"
-            >
-              Dismiss All ({activeLeads.length})
-            </button>
-          )}
-        </div>
-        {activeLeads.length === 0 ? <p className="text-amber-700/80 font-bold relative z-10">No active notes or files to review.</p> : (() => {
-          const grouped = activeLeads.reduce((acc, lead) => {
-            const key = lead.assigned_to;
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(lead);
-            return acc;
-          }, {});
-          const sortedGroups = Object.entries(grouped).sort(([, a], [, b]) => {
-            const aHasDoc = a.some(l => l.document_url);
-            const bHasDoc = b.some(l => l.document_url);
-            if (aHasDoc && !bHasDoc) return -1;
-            if (!aHasDoc && bHasDoc) return 1;
-            return 0;
-          });
-          return (
-            <div className="space-y-3 relative z-10">
-              {sortedGroups.map(([staffEmail, leads]) => {
-                const isOpen = expandedStaffCards[staffEmail];
-                const hasDoc = leads.some(l => l.document_url);
-                const docCount = leads.filter(l => l.document_url).length;
-                const noteCount = leads.filter(l => l.agent_notes && l.agent_notes.trim() !== '').length;
-                const acceptedCount = leads.filter(l => l.status === 'Accepted').length;
-                return (
-                  <div key={staffEmail} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
-                    <button
-                      onClick={() => setExpandedStaffCards(prev => ({ ...prev, [staffEmail]: !prev[staffEmail] }))}
-                      className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors ${hasDoc ? 'bg-indigo-50 hover:bg-indigo-100/70' : 'bg-amber-50/60 hover:bg-amber-50'}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>
-                          {staffEmail.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="text-left">
-                          <p className="font-black text-gray-900 text-sm">{staffEmail}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-500 font-medium">{leads.length} notification{leads.length !== 1 ? 's' : ''}</span>
-                            {docCount > 0 && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
-                                <Paperclip className="w-2.5 h-2.5" /> {docCount} file{docCount !== 1 ? 's' : ''}
-                              </span>
-                            )}
-                            {noteCount > 0 && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
-                                <FileText className="w-2.5 h-2.5" /> {noteCount} note{noteCount !== 1 ? 's' : ''}
-                              </span>
-                            )}
-                            {acceptedCount > 0 && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
-                                <CheckCircle2 className="w-2.5 h-2.5" /> {acceptedCount} accepted
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-black px-3 py-1.5 rounded-full ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>
-                          {leads.length}
-                        </span>
-                        <span className={`text-gray-400 transition-transform duration-200 inline-block ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-                      </div>
-                    </button>
-                    {isOpen && (
-                      <div className="grid grid-cols-2 gap-px bg-gray-100">
-                        {leads.map(lead => (
-                          <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
-                            <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
-                            <div className="flex items-start justify-between pr-20 mb-2">
-                              <div className="flex items-center gap-2">
-                                {lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}
-                                <span className="font-black text-gray-900">{lead.phone_number}</span>
-                                <span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span>
-                              </div>
-                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
-                            </div>
-                            {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
-                            {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">📎 View Document</a>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </div>
-
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-200 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 opacity-50 pointer-events-none"></div>
@@ -968,6 +885,79 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       </div>
     </div>
   )
+
+  const renderActivityTab = () => {
+    const grouped = activeLeads.reduce((acc, lead) => { const key = lead.assigned_to; if (!acc[key]) acc[key] = []; acc[key].push(lead); return acc; }, {});
+    const sortedGroups = Object.entries(grouped).sort(([, a], [, b]) => { const aHasDoc = a.some(l => l.document_url); const bHasDoc = b.some(l => l.document_url); if (aHasDoc && !bHasDoc) return -1; if (!aHasDoc && bHasDoc) return 1; return 0; });
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div style={{background: 'linear-gradient(135deg, #78350f 0%, #b45309 60%, #92400e 100%)'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
+          <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #fbbf24 0%, transparent 60%)'}}></div>
+          <div className="relative z-10 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3"><span className="bg-white/15 rounded-xl p-2"><Bell className="w-6 h-6 text-white" /></span>Activity Hub</h2>
+              <p className="text-amber-200 text-sm font-medium">{activeLeads.length} unresolved notification{activeLeads.length !== 1 ? 's' : ''} across {sortedGroups.length} staff member{sortedGroups.length !== 1 ? 's' : ''}</p>
+            </div>
+            {activeLeads.length > 0 && <button onClick={handleDismissAllNotifications} className="px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl transition border border-white/20 text-sm flex-shrink-0">Dismiss All ({activeLeads.length})</button>}
+          </div>
+        </div>
+        {activeLeads.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-amber-100 p-16 text-center shadow-sm">
+            <div className="text-5xl mb-4">🎉</div>
+            <h3 className="text-xl font-black text-gray-800 mb-2">All clear!</h3>
+            <p className="text-gray-500 font-medium">No active notes or files to review from your team.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sortedGroups.map(([staffEmail, leads]) => {
+              const isOpen = expandedGroup === staffEmail;
+              const hasDoc = leads.some(l => l.document_url);
+              const docCount = leads.filter(l => l.document_url).length;
+              const noteCount = leads.filter(l => l.agent_notes && l.agent_notes.trim() !== '').length;
+              const acceptedCount = leads.filter(l => l.status === 'Accepted').length;
+              return (
+                <div key={staffEmail} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
+                  <button onClick={() => setExpandedGroup(isOpen ? null : staffEmail)} className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors ${hasDoc ? 'bg-indigo-50 hover:bg-indigo-100/70' : 'bg-amber-50/60 hover:bg-amber-50'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>{staffEmail.charAt(0).toUpperCase()}</div>
+                      <div className="text-left">
+                        <p className="font-black text-gray-900">{staffEmail}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-gray-500 font-medium">{leads.length} notification{leads.length !== 1 ? 's' : ''}</span>
+                          {docCount > 0 && <span className="inline-flex items-center gap-1 text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200"><Paperclip className="w-2.5 h-2.5" /> {docCount} file{docCount !== 1 ? 's' : ''}</span>}
+                          {noteCount > 0 && <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200"><FileText className="w-2.5 h-2.5" /> {noteCount} note{noteCount !== 1 ? 's' : ''}</span>}
+                          {acceptedCount > 0 && <span className="inline-flex items-center gap-1 text-[10px] font-black bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200"><CheckCircle2 className="w-2.5 h-2.5" /> {acceptedCount} accepted</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`text-xs font-black px-3 py-1.5 rounded-full ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-500 text-white'}`}>{leads.length}</span>
+                      <span className={`text-gray-400 transition-transform duration-200 inline-block ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-gray-100">
+                      {leads.map(lead => (
+                        <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
+                          <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
+                          <div className="flex items-start justify-between pr-20 mb-2">
+                            <div className="flex items-center gap-2">{lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}<span className="font-black text-gray-900">{lead.phone_number}</span><span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span></div>
+                            <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
+                          </div>
+                          {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
+                          {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">📎 View Document</a>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const calculateGlobalPipeline = () => {
     let pending = 0, called = 0, whatsapp = 0, accepted = 0, rejected = 0, thinking = 0;
@@ -1436,7 +1426,18 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-6xl mx-auto">
-          <button onClick={() => { setSelectedAgentProfile(null); setAgentProfileLeads([]); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to Dashboard</button>
+          <div className="flex justify-between items-center mb-6">
+            <button onClick={() => { setSelectedAgentProfile(null); setAgentProfileLeads([]); }} className="text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to Dashboard</button>
+            {userRole === 'super_admin' && p.email !== userEmail && (
+              <button 
+                onClick={() => handleDeleteUser(p.email)}
+                disabled={deletingUser === p.email}
+                className="bg-white border-2 border-red-100 text-red-600 font-bold px-4 py-2 rounded-xl text-sm hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {deletingUser === p.email ? 'Deleting...' : <><Trash2 className="w-4 h-4" /> Delete Account</>}
+              </button>
+            )}
+          </div>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
             <div className="flex items-start gap-4 mb-6">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0 shadow-md">
@@ -1676,12 +1677,20 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
             <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <Target className="w-6 h-6" />
-              <p className="font-black text-xs uppercase tracking-wider">Command Center</p>
+              <p className="font-black text-xs uppercase tracking-wider">Data Centre</p>
             </button>
 
             <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <BarChart3 className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Global Matrix</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('activity'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'activity' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <Bell className="w-6 h-6" />
+              <div className="flex-1 flex items-center justify-between">
+                <p className="font-black text-xs uppercase tracking-wider">Activity Hub</p>
+                {activeLeads.length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[8px] font-black">{activeLeads.length}</span>}
+              </div>
             </button>
 
             <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
@@ -1711,63 +1720,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative overflow-x-hidden">
       <ConfirmDialog />
-      {isNotifPanelOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6">
-          <div className="w-full max-w-3xl rounded-3xl bg-white border border-white/70 shadow-2xl overflow-hidden">
-            <div className="flex items-start justify-between gap-4 p-6 border-b border-gray-200 bg-slate-50">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Global Activity Feed</h2>
-                <p className="text-sm text-gray-500 mt-1">Recent updates, alerts, and notes for your team.</p>
-              </div>
-              <button onClick={() => setIsNotifPanelOpen(false)} className="rounded-full border border-gray-200 bg-white p-3 text-gray-500 shadow-sm hover:bg-gray-50 hover:text-gray-800 transition">
-                <span className="sr-only">Close notifications panel</span>✕
-              </button>
-            </div>
-            <div className="max-h-[76vh] overflow-y-auto p-6 space-y-4 bg-white">
-              {activeLeads.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-10 text-center text-gray-500">
-                  You're all caught up! No active notes or files to review.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {activeLeads.map(lead => (
-                    <div key={lead.id} className="border border-gray-200 rounded-3xl p-5 bg-gray-50 relative group hover:bg-white hover:shadow-lg transition-all">
-                      <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 rounded-full bg-white px-2 py-1 text-sm font-bold text-gray-400 shadow-sm transition-opacity opacity-0 group-hover:opacity-100 hover:text-red-500" title="Dismiss Notification">✕</button>
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-shrink-0">
-                              {getStatusIcon(lead.status)}
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-gray-900">{lead.phone_number}</h3>
-                              <p className="text-sm text-gray-500">Staff: {lead.assigned_to} • <span className="font-semibold text-blue-600">{lead.lead_set || 'Set A'}</span></p>
-                            </div>
-                          </div>
-                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-200 text-gray-700' : 'bg-blue-100 text-blue-800'}`}>
-                            {lead.status}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-gray-700">{lead.message || 'No additional message available.'}</p>
-                        {lead.agent_notes ? (
-                          <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 italic">"{lead.agent_notes}"</div>
-                        ) : (
-                          <p className="text-sm text-gray-400 italic">No notes written.</p>
-                        )}
-                        {lead.document_url && (
-                          <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
-                            📎 View Document
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
       <nav 
         style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
         className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
@@ -1784,8 +1737,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest hidden lg:inline-block animate-nav-entry">{userRole}</span>
             </h1>
             <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl animate-nav-entry" style={{background: 'rgba(255,255,255,0.08)'}}>
-              <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Command Center</button>
+              <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Data Centre</button>
               <button onClick={() => setActiveTab('data')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
+              <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'activity' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Activity{activeLeads.length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black">{activeLeads.length > 99 ? '99+' : activeLeads.length}</span>}</button>
               <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
               <button onClick={() => setActiveTab('feedback')} className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>
                 Feedback
@@ -1794,7 +1748,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsNotifPanelOpen(true)} className="relative p-2 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
+            <button onClick={() => setActiveTab('activity')} className="relative p-2 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
               <svg className={`w-5 h-5 ${activeLeads.length > 0 ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               {activeLeads.length > 0 && <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-black shadow-lg">{activeLeads.length > 99 ? '9+' : activeLeads.length}</span>}
             </button>
@@ -1806,6 +1760,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'data' && renderDataMatrixTab()}
+        {activeTab === 'activity' && renderActivityTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
         {activeTab === 'feedback' && renderFeedbackTab()}
       </main>
@@ -1902,6 +1857,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                         <Phone className="w-4 h-4" />
                         Call {sc.full_name ? sc.full_name.split(' ')[0] : sc.email.split('@')[0]}
                       </a>
+                    )}
+
+                    {userRole === 'super_admin' && sc.email !== userEmail && (
+                      <button
+                        onClick={() => { setViewingStaffContact(null); handleDeleteUser(sc.email); }}
+                        disabled={deletingUser === sc.email}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 hover:border-red-300 transition-all active:scale-[0.98] disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {deletingUser === sc.email ? 'Deleting...' : 'Delete Account'}
+                      </button>
                     )}
                   </div>
                 </>
