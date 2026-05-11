@@ -26,6 +26,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [expandedGroup, setExpandedGroup] = useState(null)
 
   const [validNumbers, setValidNumbers] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState([])
   const [uploadSet, setUploadSet] = useState('Set A') 
   const [uploadStatus, setUploadStatus] = useState('')
   
@@ -114,16 +115,12 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setIsCreatingAcc(true); setAccCreateStatus("Building account securely...")
     
     try {
-      // 1. Check if they already exist in the profiles directory
-      const { data: existingProfile } = await supabase.from('profiles').select('*').eq('email', newAccEmail).single()
+      // 1. Check if the email is already registered as any role — reject duplicates
+      const { data: existingProfile } = await supabase.from('profiles').select('email, role').eq('email', newAccEmail).single()
       
       if (existingProfile) {
-        // They exist in the DB, just update their role and assignment
-        const { error: updateError } = await supabase.from('profiles').update({ role: 'agent', manager_email: userEmail }).eq('email', newAccEmail)
-        if (updateError) throw updateError;
-        
-        setAccCreateStatus(`Success! Account restored and assigned for ${newAccEmail}.`); 
-        setNewAccEmail(''); setNewAccPassword(''); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] });
+        const existingRole = existingProfile.role === 'manager' ? 'Manager' : 'Staff / Agent';
+        setAccCreateStatus(`❌ Account already exists: "${newAccEmail}" is already registered as a ${existingRole}. No duplicate accounts allowed.`);
         setIsCreatingAcc(false);
         return;
       }
@@ -271,50 +268,95 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     return { numbers: extracted, rowsScanned, rowsWithIC, rowsMatched }
   }
 
-  // ── FILE UPLOAD HANDLER ───────────────────────────────────────────────────
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0]; if (!file) return; setUploadStatus('Scanning document...')
-    try {
-      const XLSX = await import('xlsx')
-      const reader = new FileReader()
-      reader.onload = (evt) => {
-        try {
-          const workbook = XLSX.read(evt.target.result, { type: 'binary' })
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+  // ── FILE SCAN ENGINE ─────────────────────────────────────────────────────
+  // Core scanning logic, accepts a File array — called by both the picker
+  // handler and the per-file remove button so results always stay in sync.
+  const scanFiles = async (filesToScan) => {
+    if (filesToScan.length === 0) { setValidNumbers([]); setUploadStatus(''); return; }
 
-          if (extractMode === 'all') {
-            // ── Mode A ────────────────────────────────────────────────────
-            const extracted = runAllNumbersExtraction(rawData)
-            const uniqueNumbers = [...new Set(extracted)]
-            if (uniqueNumbers.length > 10000) {
-              setValidNumbers([])
-              setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`)
-            } else {
-              setValidNumbers(uniqueNumbers)
-              if (uniqueNumbers.length > 0) setUploadStatus(`Found ${uniqueNumbers.length} valid numbers.`)
-              else setUploadStatus('No valid mobile numbers found.')
-            }
-          } else {
-            // ── Mode B ────────────────────────────────────────────────────
-            const { numbers, rowsScanned, rowsWithIC, rowsMatched } = runAgeFilteredExtraction(rawData, minAge, maxAge)
-            const uniqueNumbers = [...new Set(numbers)]
-            if (uniqueNumbers.length > 10000) {
-              setValidNumbers([])
-              setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers. Maximum allowed is 10,000 per file to ensure stability.`)
-            } else {
-              setValidNumbers(uniqueNumbers)
-              if (uniqueNumbers.length > 0) {
-                setUploadStatus(`✅ ${rowsScanned} rows scanned → ${rowsWithIC} had a valid IC → ${rowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`)
-              } else {
-                setUploadStatus(`No numbers found. Scanned ${rowsScanned} rows, ${rowsWithIC} had ICs, but none matched age ${minAge}–${maxAge}.`)
-              }
-            }
-          }
-        } catch { setUploadStatus('Error reading file.') }
+    setValidNumbers([]);
+    setUploadStatus(`Starting scan of ${filesToScan.length} file${filesToScan.length > 1 ? 's' : ''}...`);
+
+    try {
+      const XLSX = await import('xlsx');
+
+      const readFileData = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const workbook = XLSX.read(evt.target.result, { type: 'binary' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(worksheet, { header: 1 }));
+          } catch { resolve([]); }
+        };
+        reader.onerror = () => resolve([]);
+        reader.readAsBinaryString(file);
+      });
+
+      let allExtracted = [];
+      let totalRowsScanned = 0, totalRowsWithIC = 0, totalRowsMatched = 0;
+
+      for (let i = 0; i < filesToScan.length; i++) {
+        setUploadStatus(`Scanning file ${i + 1} of ${filesToScan.length}: "${filesToScan[i].name}"...`);
+        const rawData = await readFileData(filesToScan[i]);
+
+        if (extractMode === 'all') {
+          allExtracted = allExtracted.concat(runAllNumbersExtraction(rawData));
+        } else {
+          const { numbers, rowsScanned, rowsWithIC, rowsMatched } = runAgeFilteredExtraction(rawData, minAge, maxAge);
+          allExtracted = allExtracted.concat(numbers);
+          totalRowsScanned += rowsScanned;
+          totalRowsWithIC  += rowsWithIC;
+          totalRowsMatched += rowsMatched;
+        }
       }
-      reader.readAsBinaryString(file)
-    } catch { setUploadStatus('Error reading file.') }
+
+      const uniqueNumbers = [...new Set(allExtracted)];
+      const fileLabel = filesToScan.length > 1 ? ` across ${filesToScan.length} files` : '';
+
+      if (uniqueNumbers.length > 10000) {
+        setValidNumbers([]);
+        setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers${fileLabel}. Maximum allowed is 10,000 per upload to ensure stability.`);
+      } else if (extractMode === 'all') {
+        setValidNumbers(uniqueNumbers);
+        if (uniqueNumbers.length > 0) setUploadStatus(`✅ Found ${uniqueNumbers.length} valid numbers${fileLabel}.`);
+        else setUploadStatus(`No valid mobile numbers found${fileLabel}.`);
+      } else {
+        setValidNumbers(uniqueNumbers);
+        if (uniqueNumbers.length > 0) {
+          setUploadStatus(`✅ ${totalRowsScanned} rows scanned${fileLabel} → ${totalRowsWithIC} had a valid IC → ${totalRowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`);
+        } else {
+          setUploadStatus(`No numbers found. Scanned ${totalRowsScanned} rows${fileLabel}, ${totalRowsWithIC} had ICs, but none matched age ${minAge}–${maxAge}.`);
+        }
+      }
+    } catch { setUploadStatus('Error reading file(s).'); }
+  }
+
+  // ── FILE UPLOAD HANDLER ─────────────────────────────────────────────────────
+  // Merges newly-picked files into the managed list (up to 10 total),
+  // resets the native input so the same file can be re-added later,
+  // then kicks off a fresh scan of the combined list.
+  const handleFileUpload = (e) => {
+    const newFiles = Array.from(e.target.files);
+    if (newFiles.length === 0) return;
+    // Reset native input immediately so re-selecting the same file works
+    e.target.value = '';
+
+    const merged = [...selectedFiles, ...newFiles];
+    if (merged.length > 10) {
+      setUploadStatus(`🛑 Too Many Files: You already have ${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''} selected. Maximum is 10 total.`);
+      return;
+    }
+    setSelectedFiles(merged);
+    scanFiles(merged);
+  }
+
+  // ── REMOVE SINGLE FILE ───────────────────────────────────────────────────
+  // Drops a file from the managed list by index and re-scans the remainder.
+  const removeFile = (indexToRemove) => {
+    const updated = selectedFiles.filter((_, i) => i !== indexToRemove);
+    setSelectedFiles(updated);
+    scanFiles(updated);
   }
 
   const handleUploadToDatabase = async () => {
@@ -347,6 +389,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (trulyFreshNumbers.length === 0) {
       setUploadStatus(`Upload cancelled: All ${validNumbers.length} leads are already in the database!`);
       setValidNumbers([]);
+      setSelectedFiles([]);
       document.getElementById('file-upload-input').value = '';
       setIsUploadingToDB(false);
       return;
@@ -378,6 +421,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (!insertError) { 
         setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
         setValidNumbers([]); 
+        setSelectedFiles([]);
         document.getElementById('file-upload-input').value = ''; 
         queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }); 
     } else {
@@ -536,7 +580,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
                 {/* Mode A — default */}
                 <button
-                  onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); document.getElementById('file-upload-input').value = '' }}
+                  onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); document.getElementById('file-upload-input').value = '' }}
                   className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
                     extractMode === 'all' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
@@ -549,7 +593,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
                 {/* Mode B — optional, age-filtered */}
                 <button
-                  onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); document.getElementById('file-upload-input').value = '' }}
+                  onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); document.getElementById('file-upload-input').value = '' }}
                   className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
                     extractMode === 'age' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
@@ -593,12 +637,30 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
             {/* ── File Upload ── */}
             <div>
-              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Upload Messy Spreadsheet</label>
-              <input id="file-upload-input" type="file" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded-xl bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-              <p className="text-xs text-indigo-600/80 mt-3 font-medium">
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">
+                Upload Spreadsheets
+                <span className="ml-1.5 text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
+              </label>
+              <input id="file-upload-input" type="file" multiple accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded-xl bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              {/* ── Selected file chips ── */}
+              {selectedFiles.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-bold px-2.5 py-1 rounded-full max-w-full">
+                      <span className="truncate max-w-[160px]" title={file.name}>{file.name}</span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-indigo-200 hover:bg-red-400 hover:text-white text-indigo-500 flex items-center justify-center transition-colors leading-none text-[10px] font-black"
+                        title={`Remove ${file.name}`}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-indigo-600/80 mt-2.5 font-medium">
                 {extractMode === 'all'
-                  ? 'Auto-scans all cells, ignores text, fixes country codes, and removes duplicates.'
-                  : 'Scans row-by-row. Each row must have both a valid Malaysian IC and a phone number on the same row.'}
+                  ? 'Add up to 10 files. Auto-scans all cells, fixes country codes, and removes duplicates across all files.'
+                  : 'Add up to 10 files. Scans row-by-row — each row must have both a valid Malaysian IC and a phone number.'}
               </p>
             </div>
             <div className="mt-auto pt-4">
