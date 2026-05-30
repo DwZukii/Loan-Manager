@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { Toaster } from 'sonner'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Phone, CheckCircle } from 'lucide-react'
+import { Analytics } from '@vercel/analytics/react'
 
 const queryClient = new QueryClient()
 
@@ -118,6 +119,7 @@ export default function App() {
         </div>
       }>
         <Toaster position="top-center" richColors />
+        <Analytics />
 
         {/* Dashboards always render underneath — gate overlays on top */}
         {userRole === 'super_admin' && <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
