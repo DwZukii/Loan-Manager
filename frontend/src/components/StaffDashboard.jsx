@@ -16,7 +16,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [selectedLead, setSelectedLead] = useState(null)
   const [statusFilter, setStatusFilter] = useState('All')
   const [currentPage, setCurrentPage] = useState(1)
-  const leadsPerPage = 10
+  const leadsPerPage = 20
   
   const [currentNote, setCurrentNote] = useState('')
   const [isSavingNote, setIsSavingNote] = useState(false)
