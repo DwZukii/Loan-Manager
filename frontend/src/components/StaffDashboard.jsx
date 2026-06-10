@@ -283,6 +283,18 @@ Balas *“YA”* untuk semakan 🆓
   const callsMade = totalLeads - pendingCount - invalidCount; 
   const progressPercent = Math.round((callsMade / (totalLeads - invalidCount)) * 100) || 0;
 
+  const getWhatsAppUrl = (phone, text = '') => {
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const encodedText = text ? encodeURIComponent(text) : '';
+    const waMeUrl = `https://wa.me/${phone}${text ? `?text=${encodedText}` : ''}`;
+    
+    if (isAndroid) {
+      const fallbackUrl = encodeURIComponent(waMeUrl);
+      return `intent://send?phone=${phone}${text ? `&text=${encodedText}` : ''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
+    }
+    return waMeUrl;
+  };
+
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
 
   const renderNav = () => (
@@ -436,7 +448,7 @@ Balas *“YA”* untuk semakan 🆓
 
   if (selectedLead && activeTab === 'leads') {
     const currentLead = leads.find(l => l.id === selectedLead.id); 
-    const whatsappLink = `https://wa.me/${currentLead.phone_number}`
+    const whatsappLink = getWhatsAppUrl(currentLead.phone_number);
 
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
@@ -473,7 +485,7 @@ Balas *“YA”* untuk semakan 🆓
               {showWaMenu && (
                 <div className="flex gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
                   <a href={whatsappLink} target="_blank" rel="noreferrer" className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Open in WhatsApp</a>
-                  <a href={`https://wa.me/${currentLead.phone_number}?text=${encodeURIComponent(promoScript)}`} target="_blank" rel="noreferrer" className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Send Promo Script</a>
+                  <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Send Promo Script</a>
                 </div>
               )}
               {!showWaMenu && <div className="mb-8"></div>}

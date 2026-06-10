@@ -138,7 +138,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       const { error: profileError } = await supabase.from('profiles').insert([{ email: newAccEmail, role: 'agent', manager_email: userEmail }])
       if (profileError) throw profileError
       
-      setAccCreateStatus(`Success! Staff account created.`); 
+      setAccCreateStatus(`Success! Staff account created.`); setTimeout(() => setAccCreateStatus(''), 3000);
       setNewAccEmail(''); 
       setNewAccPassword(''); 
       queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) 
@@ -319,12 +319,12 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers${fileLabel}. Maximum allowed is 10,000 per upload to ensure stability.`);
       } else if (extractMode === 'all') {
         setValidNumbers(uniqueNumbers);
-        if (uniqueNumbers.length > 0) setUploadStatus(`✅ Found ${uniqueNumbers.length} valid numbers${fileLabel}.`);
+        if (uniqueNumbers.length > 0) { setUploadStatus(`✅ Found ${uniqueNumbers.length} valid numbers${fileLabel}.`); setTimeout(() => setUploadStatus(''), 3000); }
         else setUploadStatus(`No valid mobile numbers found${fileLabel}.`);
       } else {
         setValidNumbers(uniqueNumbers);
         if (uniqueNumbers.length > 0) {
-          setUploadStatus(`✅ ${totalRowsScanned} rows scanned${fileLabel} → ${totalRowsWithIC} had a valid IC → ${totalRowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`);
+          setUploadStatus(`✅ ${totalRowsScanned} rows scanned${fileLabel} → ${totalRowsWithIC} had a valid IC → ${totalRowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`); setTimeout(() => setUploadStatus(''), 4000);
         } else {
           setUploadStatus(`No numbers found. Scanned ${totalRowsScanned} rows${fileLabel}, ${totalRowsWithIC} had ICs, but none matched age ${minAge}–${maxAge}.`);
         }
@@ -419,7 +419,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     }
 
     if (!insertError) { 
-        setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); 
+        setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); setTimeout(() => setUploadStatus(''), 3000);
         setValidNumbers([]); 
         setSelectedFiles([]);
         document.getElementById('file-upload-input').value = ''; 
@@ -450,7 +450,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
       if (error) { assignError = error; break; }
     }
-    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
+    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); setTimeout(() => setAssignStatus(''), 3000); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
     else setAssignStatus(`Error: ${assignError.message}`)
     setIsAssigning(false);
   }

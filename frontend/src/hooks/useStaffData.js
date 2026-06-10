@@ -40,7 +40,14 @@ export function useStaffData(userEmail) {
         .order('created_at', { ascending: false })
         
       if (error) throw error
-      return data || []
+      
+      const sortedData = [...(data || [])].sort((a, b) => {
+        if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+        if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+        return 0; // Keep existing created_at descending order for ties
+      });
+      
+      return sortedData;
     },
     enabled: !!userEmail,
   })
