@@ -855,9 +855,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
   const renderDataMatrixTab = () => {
     const totalLeads = agentStats.reduce((s, a) => s + a.total, 0);
-    const totalAccepted = agentStats.reduce((s, a) => s + a.accepted, 0);
     const totalPending = agentStats.reduce((s, a) => s + a.pending, 0);
-    const acceptRate = totalLeads > 0 ? ((totalAccepted / totalLeads) * 100).toFixed(1) : '0.0';
+    const totalCalled = agentStats.reduce((s, a) => s + a.called, 0);
+    const totalWhatsapp = agentStats.reduce((s, a) => s + a.whatsapp, 0);
+    const totalSms = agentStats.reduce((s, a) => s + a.thinking, 0);
     return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -870,12 +871,13 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             My Team Matrix
           </h2>
           <p className="text-indigo-300 text-sm font-medium mb-6">Live performance snapshot for your team.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               { label: 'Total Assigned', value: totalLeads, color: 'from-blue-400/20 to-indigo-400/20', border: 'border-blue-400/30', text: 'text-blue-200' },
               { label: 'Pending', value: totalPending, color: 'from-gray-400/20 to-slate-400/20', border: 'border-gray-400/30', text: 'text-gray-300' },
-              { label: 'Accepted', value: totalAccepted, color: 'from-green-400/20 to-emerald-400/20', border: 'border-green-400/30', text: 'text-green-300' },
-              { label: 'Accept Rate', value: `${acceptRate}%`, color: 'from-violet-400/20 to-purple-400/20', border: 'border-violet-400/30', text: 'text-violet-300' },
+              { label: 'Called', value: totalCalled, color: 'from-indigo-400/20 to-blue-400/20', border: 'border-indigo-400/30', text: 'text-indigo-300' },
+              { label: "WA'd", value: totalWhatsapp, color: 'from-purple-400/20 to-fuchsia-400/20', border: 'border-purple-400/30', text: 'text-purple-300' },
+              { label: "SMS'd", value: totalSms, color: 'from-yellow-400/20 to-amber-400/20', border: 'border-yellow-400/30', text: 'text-yellow-300' },
             ].map(s => (
               <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded-xl p-4`}>
                 <p className={`text-xs font-black uppercase tracking-widest ${s.text} mb-1`}>{s.label}</p>
@@ -963,7 +965,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest">Pending</th>
                   <th className="px-5 py-3.5 text-xs font-black text-blue-300 uppercase tracking-widest">Called</th>
                   <th className="px-5 py-3.5 text-xs font-black text-purple-300 uppercase tracking-widest">WA'd</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-green-300 uppercase tracking-widest">Accepted</th>
+                  <th className="px-5 py-3.5 text-xs font-black text-yellow-300 uppercase tracking-widest">SMS'd</th>
                   <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-right">Action</th>
                 </tr>
               </thead>
@@ -980,7 +982,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                     <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg font-bold text-xs border border-gray-200">{agent.pending}</span></td>
                     <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-blue-100">{agent.called}</span></td>
                     <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-green-50 text-green-700 px-2.5 py-1 rounded-lg font-black text-xs border border-green-200">{agent.accepted}</span></td>
+                    <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-lg font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
                     <td className="px-5 py-3.5 text-right">
                       <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
                     </td>

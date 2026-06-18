@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
 export default function Login({ onLogin }) {
@@ -7,16 +7,53 @@ export default function Login({ onLogin }) {
   const [errorMsg, setErrorMsg] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false) 
+  
+  // Client-side rate limiting state
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [lockoutTimer, setLockoutTimer] = useState(0)
+  const MAX_ATTEMPTS = 5
+  const LOCKOUT_DURATION = 30 // seconds
+
+  useEffect(() => {
+    let timer;
+    if (lockoutTimer > 0) {
+      timer = setInterval(() => {
+        setLockoutTimer((prev) => prev - 1)
+      }, 1000)
+    } else if (lockoutTimer === 0 && failedAttempts >= MAX_ATTEMPTS) {
+      // Reset attempts when lockout ends
+      setFailedAttempts(0)
+      setErrorMsg('')
+    }
+    return () => clearInterval(timer)
+  }, [lockoutTimer, failedAttempts])
 
   const handleSignIn = async () => {
+    if (lockoutTimer > 0) return;
+
     setIsLoading(true)
     setErrorMsg('')
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError) { setErrorMsg(authError.message); setIsLoading(false); return }
+    
+    if (authError) { 
+      const newAttempts = failedAttempts + 1
+      setFailedAttempts(newAttempts)
+      
+      if (newAttempts >= MAX_ATTEMPTS) {
+        setLockoutTimer(LOCKOUT_DURATION)
+        setErrorMsg(`Too many failed attempts. Please wait ${LOCKOUT_DURATION} seconds.`)
+      } else {
+        setErrorMsg(authError.message)
+      }
+      setIsLoading(false)
+      return 
+    }
 
     const { data: profileData, error: profileError } = await supabase.from('profiles').select('role, contact_number').eq('email', email).single()
     if (profileError || !profileData) { setErrorMsg("Account found, but no role assigned in the directory. Contact Admin."); setIsLoading(false); return }
 
+    // Reset rate limit on success
+    setFailedAttempts(0)
     onLogin(profileData.role, email, profileData.contact_number)
     setIsLoading(false)
   }
@@ -74,8 +111,12 @@ export default function Login({ onLogin }) {
                 </div>
               </div>
 
-              <button type="button" onClick={handleSignIn} disabled={isLoading} className="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 flex justify-center items-center gap-2 text-base">
-                {isLoading ? "Authenticating..." : "Secure Sign In"}
+              <button type="button" onClick={handleSignIn} disabled={isLoading || lockoutTimer > 0} className={`w-full text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 text-base ${lockoutTimer > 0 ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed shadow-blue-600/20'}`}>
+                {lockoutTimer > 0 
+                  ? `Try again in ${lockoutTimer}s` 
+                  : isLoading 
+                    ? "Authenticating..." 
+                    : "Secure Sign In"}
               </button>
             </form>
           </div>

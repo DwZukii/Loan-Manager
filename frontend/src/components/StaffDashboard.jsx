@@ -277,7 +277,7 @@ Balas *“YA”* untuk semakan 🆓
   const calledCount = leads.filter(l => l.status === 'Called (No Answer)').length; 
   const whatsappCount = leads.filter(l => l.status === 'WhatsApp Sent').length; 
   const acceptedCount = leads.filter(l => l.status === 'Accepted').length; 
-  const thinkingCount = leads.filter(l => l.status === 'Thinking').length; 
+  const thinkingCount = leads.filter(l => l.status === "SMS Sent").length; 
   const rejectedCount = leads.filter(l => l.status === 'Rejected').length;
   const invalidCount = leads.filter(l => l.status === 'Invalid Number').length;
   const callsMade = totalLeads - pendingCount - invalidCount; 
@@ -397,7 +397,7 @@ Balas *“YA”* untuk semakan 🆓
             </div>
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">3</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Update the Status & Notes</h3><p className="text-gray-600 leading-relaxed">After reaching out, change the status dropdown to reflect what happened (e.g., Called, Accepted, Thinking). Type details into the "Staff Notes" box and hit Save.</p></div>
+              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Update the Status & Notes</h3><p className="text-gray-600 leading-relaxed">After reaching out, change the status dropdown to reflect what happened (e.g., Called, Accepted, SMS Sent). Type details into the "Staff Notes" box and hit Save.</p></div>
             </div>
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">4</div>
@@ -466,7 +466,7 @@ Balas *“YA”* untuk semakan 🆓
                   <option value="Called (No Answer)">Called (No Answer)</option>
                   <option value="WhatsApp Sent">WhatsApp Sent</option>
                   <option value="Accepted">Accepted</option>
-                  <option value="Thinking">Thinking</option>
+                  <option value="SMS Sent">SMS Sent</option>
                   <option value="Rejected">Rejected</option>
                   <option value="Invalid Number">Invalid Number</option>
                 </select>
@@ -529,7 +529,7 @@ Balas *“YA”* untuk semakan 🆓
   const getCardStyle = (status) => {
     switch(status) { 
       case 'Accepted': return 'border-l-4 border-green-500 bg-green-50/30'; 
-      case 'Thinking': return 'border-l-4 border-yellow-400 bg-yellow-50/30'; 
+      case "SMS Sent": return 'border-l-4 border-yellow-400 bg-yellow-50/30'; 
       case 'Rejected': return 'border-l-4 border-red-400 bg-red-50/30'; 
       case 'Called (No Answer)': return 'border-l-4 border-blue-400 bg-blue-50/30'; 
       case 'WhatsApp Sent': return 'border-l-4 border-purple-400 bg-purple-50/30'; 
@@ -551,7 +551,7 @@ Balas *“YA”* untuk semakan 🆓
               <option value="Called (No Answer)">Called</option>
               <option value="WhatsApp Sent">WhatsApp'd</option>
               <option value="Accepted">Accepted</option>
-              <option value="Thinking">Thinking</option>
+              <option value="SMS Sent">SMS Sent</option>
               <option value="Rejected">Rejected</option>
               <option value="Invalid Number">Invalid Number</option>
             </select>
@@ -564,7 +564,7 @@ Balas *“YA”* untuk semakan 🆓
                 <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-3 text-center"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-1 truncate">Called</p><p className="text-xl font-black text-blue-700">{calledCount}</p></div>
                 <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-100 p-3 text-center"><p className="text-[10px] text-purple-600 font-bold uppercase tracking-wide mb-1 truncate">WA'd</p><p className="text-xl font-black text-purple-700">{whatsappCount}</p></div>
                 <div className="bg-green-50 rounded-xl shadow-sm border border-green-100 p-3 text-center"><p className="text-[10px] text-green-600 font-bold uppercase tracking-wide mb-1 truncate">Accepted</p><p className="text-xl font-black text-green-700">{acceptedCount}</p></div>
-                <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-100 p-3 text-center"><p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wide mb-1 truncate">Thinking</p><p className="text-xl font-black text-yellow-700">{thinkingCount}</p></div>
+                <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-100 p-3 text-center"><p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wide mb-1 truncate">SMS'd</p><p className="text-xl font-black text-yellow-700">{thinkingCount}</p></div>
                 <div className="bg-red-50 rounded-xl shadow-sm border border-red-100 p-3 text-center"><p className="text-[10px] text-red-600 font-bold uppercase tracking-wide mb-1 truncate">Rejected</p><p className="text-xl font-black text-red-700">{rejectedCount}</p></div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
@@ -593,7 +593,7 @@ Balas *“YA”* untuk semakan 🆓
                         <option value="Called (No Answer)">Called (No Answer)</option>
                         <option value="WhatsApp Sent">WhatsApp Sent</option>
                         <option value="Accepted">Accepted</option>
-                        <option value="Thinking">Thinking</option>
+                        <option value="SMS Sent">SMS Sent</option>
                         <option value="Rejected">Rejected</option>
                         <option value="Invalid Number">Invalid Number</option>
                       </select>

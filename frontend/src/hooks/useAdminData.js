@@ -137,7 +137,7 @@ export function useAdminData(userEmail, userRole) {
           if (row.status === 'Pending') statsMap[row.assigned_to].pending += Number(row.count)
           if (row.status === 'Accepted') statsMap[row.assigned_to].accepted += Number(row.count)
           if (row.status === 'Rejected') statsMap[row.assigned_to].rejected += Number(row.count)
-          if (row.status === 'Thinking') statsMap[row.assigned_to].thinking += Number(row.count)
+          if (row.status === 'Thinking' || row.status === 'SMS Sent') statsMap[row.assigned_to].thinking += Number(row.count)
           if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
           if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
           if (row.status === 'Invalid Number') statsMap[row.assigned_to].invalid += Number(row.count)
