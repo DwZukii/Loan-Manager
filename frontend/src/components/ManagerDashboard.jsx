@@ -37,6 +37,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [isAssigning, setIsAssigning] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isUploadingToDB, setIsUploadingToDB] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analyzeProgress, setAnalyzeProgress] = useState(0)
+  const [filesNeedAnalysis, setFilesNeedAnalysis] = useState(false)
 
   const [extractMode, setExtractMode] = useState('all')
   const [minAge, setMinAge] = useState(25)
@@ -272,8 +275,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   // Core scanning logic, accepts a File array — called by both the picker
   // handler and the per-file remove button so results always stay in sync.
   const scanFiles = async (filesToScan) => {
-    if (filesToScan.length === 0) { setValidNumbers([]); setUploadStatus(''); return; }
+    if (filesToScan.length === 0) { setValidNumbers([]); setUploadStatus(''); setFilesNeedAnalysis(false); return; }
 
+    setIsAnalyzing(true);
+    setAnalyzeProgress(0);
     setValidNumbers([]);
     setUploadStatus(`Starting scan of ${filesToScan.length} file${filesToScan.length > 1 ? 's' : ''}...`);
 
@@ -298,6 +303,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
       for (let i = 0; i < filesToScan.length; i++) {
         setUploadStatus(`Scanning file ${i + 1} of ${filesToScan.length}: "${filesToScan[i].name}"...`);
+        setAnalyzeProgress(Math.round((i / filesToScan.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update
+        
         const rawData = await readFileData(filesToScan[i]);
 
         if (extractMode === 'all') {
@@ -309,7 +317,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           totalRowsWithIC  += rowsWithIC;
           totalRowsMatched += rowsMatched;
         }
+        setAnalyzeProgress(Math.round(((i + 1) / filesToScan.length) * 100));
       }
+
+      setFilesNeedAnalysis(false);
 
       const uniqueNumbers = [...new Set(allExtracted)];
       const fileLabel = filesToScan.length > 1 ? ` across ${filesToScan.length} files` : '';
@@ -330,6 +341,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         }
       }
     } catch { setUploadStatus('Error reading file(s).'); }
+    setIsAnalyzing(false);
   }
 
   // ── FILE UPLOAD HANDLER ─────────────────────────────────────────────────────
@@ -348,7 +360,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       return;
     }
     setSelectedFiles(merged);
-    scanFiles(merged);
+    setFilesNeedAnalysis(true);
+    setValidNumbers([]);
+    setUploadStatus(`Ready to analyze ${merged.length} file(s).`);
   }
 
   // ── REMOVE SINGLE FILE ───────────────────────────────────────────────────
@@ -356,7 +370,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const removeFile = (indexToRemove) => {
     const updated = selectedFiles.filter((_, i) => i !== indexToRemove);
     setSelectedFiles(updated);
-    scanFiles(updated);
+    setFilesNeedAnalysis(updated.length > 0);
+    setValidNumbers([]);
+    if (updated.length === 0) setUploadStatus('');
+    else setUploadStatus(`Ready to analyze ${updated.length} file(s).`);
   }
 
   const handleUploadToDatabase = async () => {
@@ -580,7 +597,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
                 {/* Mode A — default */}
                 <button
-                  onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); document.getElementById('file-upload-input').value = '' }}
+                  onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); setFilesNeedAnalysis(false); document.getElementById('file-upload-input').value = '' }}
                   className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
                     extractMode === 'all' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
@@ -593,7 +610,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
                 {/* Mode B — optional, age-filtered */}
                 <button
-                  onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); document.getElementById('file-upload-input').value = '' }}
+                  onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); setFilesNeedAnalysis(false); document.getElementById('file-upload-input').value = '' }}
                   className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
                     extractMode === 'age' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
@@ -664,7 +681,19 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               </p>
             </div>
             <div className="mt-auto pt-4">
-              {validNumbers.length > 0 ? (
+              {filesNeedAnalysis ? (
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
+                  <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
+                  {isAnalyzing && (
+                    <div className="w-full bg-indigo-200 rounded-full h-2 mb-3 overflow-hidden">
+                      <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${analyzeProgress}%` }}></div>
+                    </div>
+                  )}
+                  <button onClick={() => scanFiles(selectedFiles)} disabled={isAnalyzing} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">
+                    {isAnalyzing ? `Analyzing... ${analyzeProgress}%` : 'Confirm & Analyze Files'}
+                  </button>
+                </div>
+              ) : validNumbers.length > 0 ? (
                 <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
                   <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
                   <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Personal ${uploadSet}`}</button>
@@ -1090,12 +1119,17 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   if (selectedAgentProfile) {
     const p = selectedAgentProfile
     // percentDone unused
-    const filteredProfileLeads = agentProfileLeads.filter(lead => profileFilter === 'All' ? true : lead.status === profileFilter)
+    const filteredProfileLeads = agentProfileLeads.filter(lead => {
+      if (profileFilter === 'All') return true;
+      if (profileFilter === "SMS'd") return lead.status === 'Thinking' || lead.status === 'SMS Sent';
+      return lead.status === profileFilter;
+    })
     const currentProfileLeads = filteredProfileLeads.slice((profilePage - 1) * profileLeadsPerPage, profilePage * profileLeadsPerPage)
     const totalProfilePages = Math.ceil(filteredProfileLeads.length / profileLeadsPerPage)
 
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-gray-50 p-8 relative">
+        <ConfirmDialog />
         <div className="max-w-6xl mx-auto">
           <button onClick={() => { setSelectedAgentProfile(null); setAgentProfileLeads([]); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to Dashboard</button>
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
@@ -1123,7 +1157,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center"><p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Called</p><p className="text-2xl font-black text-blue-700">{p.called}</p></div>
               <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 text-center"><p className="text-xs text-purple-600 font-bold uppercase tracking-wide">WA'd</p><p className="text-2xl font-black text-purple-700">{p.whatsapp}</p></div>
               <div className="bg-green-50 rounded-xl p-4 border border-green-100 text-center"><p className="text-xs text-green-600 font-bold uppercase tracking-wide">Accepted</p><p className="text-2xl font-black text-green-700">{p.accepted}</p></div>
-              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 text-center"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wide">Thinking</p><p className="text-2xl font-black text-yellow-700">{p.thinking}</p></div>
+              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 text-center"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wide">SMS'd</p><p className="text-2xl font-black text-yellow-700">{p.thinking}</p></div>
               <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center"><p className="text-xs text-red-600 font-bold uppercase tracking-wide">Rejected</p><p className="text-2xl font-black text-red-700">{p.rejected}</p></div>
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Invalid</p><p className="text-2xl font-black text-gray-800">{p.invalid}</p></div>
             </div>
@@ -1147,7 +1181,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 <option value="Called (No Answer)">Called Only</option>
                 <option value="WhatsApp Sent">WhatsApp Only</option>
                 <option value="Accepted">Accepted Only</option>
-                <option value="Thinking">Thinking Only</option>
+                <option value="SMS'd">SMS'd Only</option>
                 <option value="Rejected">Rejected Only</option>
                 <option value="Invalid Number">Invalid Only</option>
               </select>

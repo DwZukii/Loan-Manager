@@ -39,6 +39,15 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  const [customScript, setCustomScript] = useState(() => localStorage.getItem(`whatsapp_script_${userEmail}`) || '')
+  const [isEditingScript, setIsEditingScript] = useState(false)
+  
+  const handleSaveScript = () => {
+    localStorage.setItem(`whatsapp_script_${userEmail}`, customScript);
+    toast.success("Custom script saved successfully!");
+    setIsEditingScript(false);
+  }
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -149,7 +158,7 @@ Kelebihan *PROMOSI* :-
 *✅ Ada masalah Ctos/Ccris/SAA/Blacklist pun boleh apply*
 *✅ ADA BLACKLIST BOLEH MEMOHON*
 *✅ Dokumen mudah dan ringkas*
-*✅ Paling penting, tiada cas upfornt atau cas merapu dikenakan.*
+*✅ Paling penting, tiada cas upfront atau cas merapu dikenakan.*
 
 Balas *“YA”* untuk semakan 🆓
 
@@ -483,9 +492,19 @@ Balas *“YA”* untuk semakan 🆓
               </div>
 
               {showWaMenu && (
-                <div className="flex gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
-                  <a href={whatsappLink} target="_blank" rel="noreferrer" className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Open in WhatsApp</a>
-                  <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Send Promo Script</a>
+                <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
+                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                    <a href={whatsappLink} target="_blank" rel="noreferrer" className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Blank Msg</a>
+                    <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
+                    <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
+                  </div>
+                  <button onClick={() => setIsEditingScript(!isEditingScript)} className="text-xs text-green-700 font-bold underline text-center mt-1">Edit My Script</button>
+                  {isEditingScript && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <textarea className="w-full border border-green-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white" rows="6" value={customScript} onChange={(e) => setCustomScript(e.target.value)} placeholder="Type your custom WhatsApp script here..."></textarea>
+                      <button onClick={handleSaveScript} className="bg-green-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-green-700 transition shadow-sm">Save My Script</button>
+                    </div>
+                  )}
                 </div>
               )}
               {!showWaMenu && <div className="mb-8"></div>}
