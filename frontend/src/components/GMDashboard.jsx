@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import UserDropdown from './UserDropdown'
-import { BarChart3, Users, Mail, Phone, LogOut, Menu, X, Brain } from 'lucide-react'
+import { BarChart3, Users, Mail, Phone, LogOut, Menu, X, Brain, PieChart as PieChartIcon } from 'lucide-react'
 import { useGMData } from '../hooks/useGMData'
 
 export default function GMDashboard({ userEmail, userRole, onLogout }) {
@@ -86,35 +86,58 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-        <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col min-h-[400px]">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Pipeline Breakdown</h3>
-          <div className="flex-1 w-full min-h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={calculateGlobalPipeline()} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" tick={{fontSize: 12, fill: '#475569', fontWeight: 600}} axisLine={false} tickLine={false} width={80} />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>{calculateGlobalPipeline().map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
+            <div>
+              <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
+              <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
+            </div>
+          </div>
+          <div className="p-6 h-72">
+            {agentStats.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No agent data available</p></div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={agentStats} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
+                  <XAxis dataKey="email" tickFormatter={(v) => v.split('@')[0]} stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip cursor={{fill: '#f5f5ff'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}} />
+                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
+                  <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
+                  <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
+                  <Bar dataKey="accepted" name="Accepted" fill="#22c55e" radius={[4,4,0,0]} maxBarSize={36} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm flex flex-col min-h-[400px]">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Conversion Distribution</h3>
-          <div className="flex-1 w-full flex items-center justify-center min-h-[300px]">
-            {totalLeads > 0 && totalLeads !== totalPending ? (
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+            <span className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center text-violet-500"><PieChartIcon className="w-5 h-5" /></span>
+            <div>
+              <h3 className="text-sm font-extrabold text-gray-900">Pipeline Health</h3>
+              <p className="text-xs text-gray-400">Global lead status breakdown</p>
+            </div>
+          </div>
+          <div className="p-6 h-72 flex items-center justify-center">
+            {calculateGlobalPipeline().length === 0 ? (
+              <div className="flex flex-col items-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No pipeline data</p></div>
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={calculateGlobalPipeline().filter(i => i.name !== 'Pending')} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                    {calculateGlobalPipeline().filter(i => i.name !== 'Pending').map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
+                  <Pie data={calculateGlobalPipeline()} cx="50%" cy="50%" innerRadius={65} outerRadius={88} paddingAngle={3} dataKey="value" stroke="none">
+                    {calculateGlobalPipeline().map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 600, paddingTop: '20px'}} />
+                  <Tooltip wrapperStyle={{outline: 'none'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}}/>
+                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
                 </PieChart>
               </ResponsiveContainer>
-            ) : (<div className="text-center text-gray-400 font-medium flex flex-col items-center gap-2"><Brain className="w-12 h-12 text-gray-200" /><p>Awaiting lead activity</p></div>)}
+            )}
           </div>
         </div>
       </div>
@@ -244,30 +267,28 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
-      <nav className={`fixed top-0 w-full z-50 transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}>
-        <div className="bg-indigo-900 shadow-xl border-b border-indigo-800">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-20">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-inner shadow-indigo-400/50">
-                  <Brain className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">TeleManager <span className="text-indigo-400 font-bold px-2 py-0.5 bg-indigo-950 rounded-full text-[10px] tracking-widest uppercase border border-indigo-800">GM</span></h1>
-                </div>
-              </div>
-              <div className="hidden md:flex items-center gap-8">
-                <div className="flex bg-indigo-950/50 p-1 rounded-xl">
-                  <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
-                  <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
-                </div>
-                <UserDropdown userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
-              </div>
-              <div className="flex items-center md:hidden gap-4">
-                <UserDropdown userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
-                <button onClick={() => setIsMobileMenuOpen(true)} className="text-indigo-200 hover:text-white transition p-2"><Menu className="w-6 h-6" /></button>
-              </div>
+      <nav 
+        style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+        className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
+      >
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <div className="lg:hidden -ml-2 animate-nav-entry">
+              <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-indigo-200 hover:text-white transition-colors">
+                <Menu className="w-6 h-6" />
+              </button>
             </div>
+            <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+              <span className="text-white">Tele Manager</span>
+              <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest hidden lg:inline-block animate-nav-entry">{userRole}</span>
+            </h1>
+            <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl animate-nav-entry" style={{background: 'rgba(255,255,255,0.08)'}}>
+              <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
+              <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <UserDropdown userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
           </div>
         </div>
       </nav>
@@ -281,7 +302,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
         </div>
       </div>
 
-      <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-20">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
         {activeTab === 'overview' && renderDataMatrixTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
       </main>
