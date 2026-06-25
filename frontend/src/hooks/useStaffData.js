@@ -13,7 +13,7 @@ export function useStaffData(userEmail) {
       .channel('staff-dashboard-leads')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'leads' },
+        { event: '*', schema: 'public', table: 'leads', filter: `assigned_to=eq.${userEmail}` },
         () => {
           if (timeoutId) clearTimeout(timeoutId)
           timeoutId = setTimeout(() => {
@@ -50,5 +50,6 @@ export function useStaffData(userEmail) {
       return sortedData;
     },
     enabled: !!userEmail,
+    staleTime: 30_000,
   })
 }

@@ -10,6 +10,7 @@ const Login = lazy(() => import('./components/Login'))
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'))
 const ManagerDashboard = lazy(() => import('./components/ManagerDashboard'))
 const StaffDashboard = lazy(() => import('./components/StaffDashboard'))
+const GMDashboard = lazy(() => import('./components/GMDashboard'))
 
 export default function App() {
   const [userRole, setUserRole] = useState(null)
@@ -122,6 +123,7 @@ export default function App() {
         {/* Dashboards always render underneath — gate overlays on top */}
         {userRole === 'super_admin' && <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
         {userRole === 'manager' && <ManagerDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
+        {userRole === 'general_manager' && <GMDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}
         {userRole === 'agent' && <StaffDashboard userEmail={userEmail} onLogout={handleLogout} />}
         {!userRole && <Login onLogin={handleLogin} />}
 

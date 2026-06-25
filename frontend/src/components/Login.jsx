@@ -18,15 +18,18 @@ export default function Login({ onLogin }) {
     let timer;
     if (lockoutTimer > 0) {
       timer = setInterval(() => {
-        setLockoutTimer((prev) => prev - 1)
+        setLockoutTimer((prev) => {
+          if (prev <= 1) {
+            setFailedAttempts(0)
+            setErrorMsg('')
+            return 0
+          }
+          return prev - 1
+        })
       }, 1000)
-    } else if (lockoutTimer === 0 && failedAttempts >= MAX_ATTEMPTS) {
-      // Reset attempts when lockout ends
-      setFailedAttempts(0)
-      setErrorMsg('')
     }
     return () => clearInterval(timer)
-  }, [lockoutTimer, failedAttempts])
+  }, [lockoutTimer])
 
   const handleSignIn = async () => {
     if (lockoutTimer > 0) return;

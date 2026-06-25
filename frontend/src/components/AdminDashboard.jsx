@@ -20,6 +20,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const unassignedCounts = data?.unassignedCounts || { 'Set A': 0, 'Set B': 0, 'Set C': 0 };
   const managersList = data?.managersList || [];
   const agentsList = data?.agentsList || [];
+  const gmList = data?.gmList || [];
   const managerStats = data?.managerStats || [];
   const agentStats = data?.agentStats || [];
   const activeLeads = data?.activeLeads || [];
@@ -65,6 +66,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [newAccPassword, setNewAccPassword] = useState('')
   const [newAccRole, setNewAccRole] = useState('agent') 
   const [newAccManager, setNewAccManager] = useState('')
+  const [selectedManagersForGM, setSelectedManagersForGM] = useState([])
   const [isCreatingAcc, setIsCreatingAcc] = useState(false)
   const [accCreateStatus, setAccCreateStatus] = useState('')
   const [showNewAccPassword, setShowNewAccPassword] = useState(false)
@@ -181,8 +183,16 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       const { error: profileError } = await supabase.from('profiles').insert([{ email: newAccEmail, role: roleToAssign, manager_email: managerToAssign }])
       if (profileError) throw profileError
 
+      if (roleToAssign === 'general_manager' && selectedManagersForGM.length > 0) {
+        const { error: gmUpdateError } = await supabase
+          .from('profiles')
+          .update({ general_manager_email: newAccEmail })
+          .in('email', selectedManagersForGM)
+        if (gmUpdateError) throw gmUpdateError
+      }
+
       setAccCreateStatus(`Success! Account active for ${newAccEmail}.`); setTimeout(() => setAccCreateStatus(''), 3000);
-      setNewAccEmail(''); setNewAccPassword(''); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
+      setNewAccEmail(''); setNewAccPassword(''); setSelectedManagersForGM([]); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
     } catch (err) { 
       setAccCreateStatus(`Error: ${err.message}`) 
     }
@@ -192,6 +202,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const handleAssignManager = async (agentEmail, newManagerEmail) => {
     const { error } = await supabase.from('profiles').update({ manager_email: newManagerEmail || null }).eq('email', agentEmail)
     if (!error) { queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) } 
+  }
+
+  const handleAssignGM = async (managerEmail, newGMEmail) => {
+    const { error } = await supabase.from('profiles').update({ general_manager_email: newGMEmail || null }).eq('email', managerEmail)
+    if (!error) { queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
 
   const handleDeleteUser = async (targetEmail) => {
@@ -1328,11 +1343,28 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Assign Role</label>
-                <select value={newAccRole} onChange={e => setNewAccRole(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50"><option value="agent">Role: Staff</option><option value="manager">Role: Manager</option></select>
+                <select value={newAccRole} onChange={e => setNewAccRole(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50"><option value="agent">Role: Staff</option><option value="manager">Role: Manager</option><option value="general_manager">Role: General Manager</option></select>
               </div>
               <div>
-                <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Assign To Manager</label>
-                {newAccRole === 'agent' ? (<select value={newAccManager} onChange={e => setNewAccManager(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium"><option value="">No Manager (Unassigned)</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>) : (<div className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-400 italic">Not applicable for Managers</div>)}
+                <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">{newAccRole === 'general_manager' ? 'Assign Managers to GM' : 'Assign To Manager'}</label>
+                {newAccRole === 'agent' ? (
+                  <select value={newAccManager} onChange={e => setNewAccManager(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium"><option value="">No Manager (Unassigned)</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>
+                ) : newAccRole === 'general_manager' ? (
+                  <div className="w-full max-h-32 overflow-y-auto p-2 border-2 border-gray-200 rounded-xl bg-gray-50 space-y-1 custom-scrollbar">
+                    {managersList.map(m => (
+                      <label key={m.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-200 hover:shadow-sm">
+                        <input type="checkbox" checked={selectedManagersForGM.includes(m.email)} onChange={(e) => {
+                          if (e.target.checked) setSelectedManagersForGM([...selectedManagersForGM, m.email]);
+                          else setSelectedManagersForGM(selectedManagersForGM.filter(email => email !== m.email));
+                        }} className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                        <span className="text-sm font-medium text-gray-700 truncate">{m.email}</span>
+                      </label>
+                    ))}
+                    {managersList.length === 0 && <p className="text-xs text-gray-400 italic p-2 text-center">No managers available.</p>}
+                  </div>
+                ) : (
+                  <div className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-400 italic">Not applicable for Managers</div>
+                )}
               </div>
             </div>
             <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
@@ -1496,6 +1528,57 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             })()}
           </div>
         </div>
+
+        {/* Reassign Managers to GMs */}
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mt-6">
+          <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600"><Users className="w-5 h-5" /></span> Assign Managers to GM</h3>
+                <p className="text-xs text-gray-400 font-medium mt-0.5">
+                  {managersList.length} manager{managersList.length !== 1 ? 's' : ''} available
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-y-auto max-h-96">
+            {managersList.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="font-bold text-gray-500">No manager accounts found.</p>
+                </div>
+            ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr className="border-b border-gray-200">
+                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Manager Account</th>
+                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">General Manager Assignment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {managersList.map(manager => (
+                      <tr key={manager.id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{manager.email.charAt(0)}</div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{manager.email}</p>
+                              <p className="text-xs text-gray-400">{manager.general_manager_email ? `→ ${manager.general_manager_email}` : 'Unassigned'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-3.5">
+                          <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 font-bold text-gray-700 outline-none transition-all">
+                            <option value="">Unassigned</option>
+                            {gmList.map(gm => <option key={gm.id} value={gm.email}>{gm.email}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1582,7 +1665,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="All">Show All Leads</option>
                 <option value="Pending">Pending Only</option>
-                <option value="Called (No Answer)">Called Only</option>
+                <option value="Called">Called Only</option>
                 <option value="WhatsApp Sent">WhatsApp Only</option>
                 <option value="Accepted">Accepted Only</option>
                 <option value="SMS'd">SMS'd Only</option>

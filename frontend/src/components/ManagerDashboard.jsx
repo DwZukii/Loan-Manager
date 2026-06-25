@@ -1178,7 +1178,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="All">Show All Leads</option>
                 <option value="Pending">Pending Only</option>
-                <option value="Called (No Answer)">Called Only</option>
+                <option value="Called">Called Only</option>
                 <option value="WhatsApp Sent">WhatsApp Only</option>
                 <option value="Accepted">Accepted Only</option>
                 <option value="SMS'd">SMS'd Only</option>

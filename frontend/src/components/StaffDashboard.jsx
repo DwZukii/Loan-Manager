@@ -283,7 +283,7 @@ Balas *“YA”* untuk semakan 🆓
 
   const totalLeads = leads.length; 
   const pendingCount = leads.filter(l => l.status === 'Pending').length; 
-  const calledCount = leads.filter(l => l.status === 'Called (No Answer)').length; 
+  const calledCount = leads.filter(l => l.status === 'Called').length; 
   const whatsappCount = leads.filter(l => l.status === 'WhatsApp Sent').length; 
   const acceptedCount = leads.filter(l => l.status === 'Accepted').length; 
   const thinkingCount = leads.filter(l => l.status === "SMS Sent").length; 
@@ -472,7 +472,7 @@ Balas *“YA”* untuk semakan 🆓
                 <span className="text-sm font-bold text-gray-500">Status:</span>
                 <select value={currentLead.status} onChange={(e) => handleStatusChange(currentLead.id, e.target.value)} className="bg-gray-100 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 font-bold shadow-sm cursor-pointer outline-none">
                   <option value="Pending">Pending</option>
-                  <option value="Called (No Answer)">Called (No Answer)</option>
+                  <option value="Called">Called</option>
                   <option value="WhatsApp Sent">WhatsApp Sent</option>
                   <option value="Accepted">Accepted</option>
                   <option value="SMS Sent">SMS Sent</option>
@@ -550,7 +550,7 @@ Balas *“YA”* untuk semakan 🆓
       case 'Accepted': return 'border-l-4 border-green-500 bg-green-50/30'; 
       case "SMS Sent": return 'border-l-4 border-yellow-400 bg-yellow-50/30'; 
       case 'Rejected': return 'border-l-4 border-red-400 bg-red-50/30'; 
-      case 'Called (No Answer)': return 'border-l-4 border-blue-400 bg-blue-50/30'; 
+      case 'Called': return 'border-l-4 border-blue-400 bg-blue-50/30'; 
       case 'WhatsApp Sent': return 'border-l-4 border-purple-400 bg-purple-50/30'; 
       case 'Invalid Number': return 'border-l-4 border-gray-400 bg-gray-50 opacity-75';
       default: return 'border-l-4 border-gray-300 bg-white' 
@@ -567,7 +567,7 @@ Balas *“YA”* untuk semakan 🆓
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="p-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
               <option value="All">All Leads</option>
               <option value="Pending">Pending</option>
-              <option value="Called (No Answer)">Called</option>
+              <option value="Called">Called</option>
               <option value="WhatsApp Sent">WhatsApp'd</option>
               <option value="Accepted">Accepted</option>
               <option value="SMS Sent">SMS Sent</option>
@@ -609,7 +609,7 @@ Balas *“YA”* untuk semakan 🆓
                       <h3 className="text-xl font-bold text-gray-800 mb-1 tracking-tight">{lead.phone_number}</h3>
                       <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold shadow-sm cursor-pointer outline-none">
                         <option value="Pending">Pending</option>
-                        <option value="Called (No Answer)">Called (No Answer)</option>
+                        <option value="Called">Called</option>
                         <option value="WhatsApp Sent">WhatsApp Sent</option>
                         <option value="Accepted">Accepted</option>
                         <option value="SMS Sent">SMS Sent</option>

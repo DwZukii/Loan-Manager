@@ -18,7 +18,7 @@ export function useAdminData(userEmail, userRole) {
           if (timeoutId) clearTimeout(timeoutId)
           timeoutId = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] })
-          }, 500)
+          }, 1500)
         }
       )
       .subscribe()
@@ -37,7 +37,7 @@ export function useAdminData(userEmail, userRole) {
       const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
 
       const [profilesRes, feedbackRes, countsRes] = await Promise.all([
-        supabase.from('profiles').select('*'),
+        supabase.from('profiles').select('email, role, manager_email, full_name, contact_number, general_manager_email'),
         supabase.from('feedback').select('*').order('created_at', { ascending: false }),
         supabase.rpc('get_set_counts', { p_owner: userEmail }) // Replaces looping 4 count queries
       ]);
@@ -58,6 +58,7 @@ export function useAdminData(userEmail, userRole) {
 
       const managersList = profilesData.filter(p => p.role === 'manager')
       const agentsList = profilesData.filter(p => p.role === 'agent')
+      const gmList = profilesData.filter(p => p.role === 'general_manager')
 
       let teamEmails = []
       if (userRole === 'super_admin') {
@@ -138,7 +139,7 @@ export function useAdminData(userEmail, userRole) {
           if (row.status === 'Accepted') statsMap[row.assigned_to].accepted += Number(row.count)
           if (row.status === 'Rejected') statsMap[row.assigned_to].rejected += Number(row.count)
           if (row.status === 'Thinking' || row.status === 'SMS Sent') statsMap[row.assigned_to].thinking += Number(row.count)
-          if (row.status === 'Called (No Answer)') statsMap[row.assigned_to].called += Number(row.count)
+          if (row.status === 'Called') statsMap[row.assigned_to].called += Number(row.count)
           if (row.status === 'WhatsApp Sent') statsMap[row.assigned_to].whatsapp += Number(row.count)
           if (row.status === 'Invalid Number') statsMap[row.assigned_to].invalid += Number(row.count)
         })
@@ -164,6 +165,7 @@ export function useAdminData(userEmail, userRole) {
         unassignedCounts: counts,
         managersList,
         agentsList,
+        gmList,
         managerStats,
         agentStats,
         activeLeads,
@@ -171,5 +173,6 @@ export function useAdminData(userEmail, userRole) {
       };
     },
     enabled: !!userEmail,
+    staleTime: 30_000,
   })
 }
