@@ -924,7 +924,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Team Performance Tracker</h3>
-              <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
+              <p className="text-xs text-gray-400">Called · WhatsApp · SMS per agent</p>
             </div>
           </div>
           <div className="p-6 h-72">
@@ -940,7 +940,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
                   <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
                   <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="accepted" name="Accepted" fill="#22c55e" radius={[4,4,0,0]} maxBarSize={36} />
+                  <Bar dataKey="thinking" name="SMS" fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}

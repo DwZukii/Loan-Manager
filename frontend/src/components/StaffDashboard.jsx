@@ -41,11 +41,20 @@ export default function StaffDashboard({ userEmail, onLogout }) {
 
   const [customScript, setCustomScript] = useState(() => localStorage.getItem(`whatsapp_script_${userEmail}`) || '')
   const [isEditingScript, setIsEditingScript] = useState(false)
+  const [isSmsOpen, setIsSmsOpen] = useState(false)
+  const [isEditingSmsScript, setIsEditingSmsScript] = useState(false)
+  const [customSmsScript, setCustomSmsScript] = useState(() => localStorage.getItem(`sms_script_${userEmail}`) || '')
   
   const handleSaveScript = () => {
     localStorage.setItem(`whatsapp_script_${userEmail}`, customScript);
     toast.success("Custom script saved successfully!");
     setIsEditingScript(false);
+  }
+
+  const handleSaveSmsScript = () => {
+    localStorage.setItem(`sms_script_${userEmail}`, customSmsScript)
+    toast.success("SMS script saved successfully!")
+    setIsEditingSmsScript(false);
   }
 
   useEffect(() => {
@@ -165,6 +174,19 @@ Balas *“YA”* untuk semakan 🆓
 *Abaikan jika tidak berminat ❌*
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
+
+  const smsPromoScript = `Salam sejahtera, 
+Maaf menganggu,
+Saya wakil pembiayaan Alrajhi.
+
+Ciri yg ditawarkan Alrajhi:
+- dari 4.70 (tetap)
+- komitmen tinggi
+- satukan pembiayaan
+- ctos, saa, tunggakan dll
+
+Untuk semakan percuma, sila repy 'Ya'.
+terima kasih.`;
 
   const handleStatusChange = async (id, newStatus) => {
     queryClient.setQueryData(['staffData', userEmail], (oldData) => 
@@ -302,6 +324,13 @@ Balas *“YA”* untuk semakan 🆓
       return `intent://send?phone=${phone}${text ? `&text=${encodedText}` : ''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
     }
     return waMeUrl;
+  };
+
+  const getSmsUrl = (phone, text = '') => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const separator = isIOS ? '&' : '?';
+    const encodedText = text ? encodeURIComponent(text) : '';
+    return `sms:+${phone}${separator}body=${encodedText}`;
   };
 
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
@@ -464,7 +493,7 @@ Balas *“YA”* untuk semakan 🆓
         {renderMobileMenu()}
         <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
-            <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
+            <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
             <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
               <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{currentLead.phone_number}</h2>
@@ -482,10 +511,26 @@ Balas *“YA”* untuk semakan 🆓
               </div>
               
               <div className="flex flex-col gap-2 mb-2">
-                <div className="flex gap-2">
-                  <a href={`tel:${currentLead.phone_number}`} className="flex-1 bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
-                  <a href={`sms:${currentLead.phone_number}`} className="flex-1 bg-gray-800 text-white text-center py-3 rounded-xl font-bold hover:bg-gray-900 shadow-sm transition">SMS</a>
-                </div>
+                <a href={`tel:${currentLead.phone_number}`} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
+                <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded-xl font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
+                  SMS <svg className={`w-4 h-4 transition-transform ${isSmsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                {isSmsOpen && (
+                  <div className="flex flex-col gap-2 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2 mt-0">
+                    <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                      <a href={getSmsUrl(currentLead.phone_number)} className="flex-1 bg-white border border-slate-300 text-slate-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition shadow-sm">Blank Msg</a>
+                      <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
+                      <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
+                    </div>
+                    <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="text-xs text-slate-700 font-bold underline text-center mt-1">Edit My Script</button>
+                    {isEditingSmsScript && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white" rows="6" value={customSmsScript} onChange={(e) => setCustomSmsScript(e.target.value)} placeholder="Type your custom SMS script here..."></textarea>
+                        <button onClick={handleSaveSmsScript} className="bg-slate-700 text-white text-sm font-bold py-2 rounded-lg hover:bg-slate-800 transition shadow-sm">Save My Script</button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button onClick={() => setShowWaMenu(!showWaMenu)} className="w-full bg-green-500 text-white text-center py-3 rounded-xl font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
                   WhatsApp <svg className={`w-4 h-4 transition-transform ${showWaMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>

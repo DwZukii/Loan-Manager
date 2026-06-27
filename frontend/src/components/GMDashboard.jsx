@@ -93,7 +93,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
             <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
-              <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
+              <p className="text-xs text-gray-400">Called · WhatsApp · SMS per agent</p>
             </div>
           </div>
           <div className="p-6 h-72">
@@ -109,7 +109,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
                   <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
                   <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
                   <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="accepted" name="Accepted" fill="#22c55e" radius={[4,4,0,0]} maxBarSize={36} />
+                  <Bar dataKey="thinking" name="SMS" fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -142,47 +142,76 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6">
         <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div><h3 className="text-lg font-extrabold text-gray-900">Individual Performance</h3><p className="text-xs text-gray-400 font-medium mt-0.5">Live metrics for all {agentsList.length} staff members</p></div>
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
+            <div>
+              <h3 className="text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Live metrics for all {agentsList.length} staff members</p>
+            </div>
+          </div>
           <div className="relative flex-shrink-0">
-            <input type="text" placeholder="Search staff..." value={globalStaffSearch} onChange={e => setGlobalStaffSearch(e.target.value)} className="pl-4 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-full sm:w-64 font-medium" />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input
+              type="text"
+              placeholder="Search staff..."
+              value={globalStaffSearch}
+              onChange={e => setGlobalStaffSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+            />
+            {globalStaffSearch && (
+              <button onClick={() => setGlobalStaffSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+            )}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50">
-              <tr className="border-b border-gray-200">
-                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Agent</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-center">Manager</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-center">Total</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-center">Pending</th>
-                <th className="px-6 py-4 text-xs font-black text-blue-500 uppercase tracking-widest text-center">Called</th>
-                <th className="px-6 py-4 text-xs font-black text-purple-500 uppercase tracking-widest text-center">WA'd</th>
-                <th className="px-6 py-4 text-xs font-black text-yellow-500 uppercase tracking-widest text-center">SMS'd</th>
-                <th className="px-6 py-4 text-xs font-black text-green-500 uppercase tracking-widest text-center">Accepted</th>
-                <th className="px-6 py-4 text-xs font-black text-red-500 uppercase tracking-widest text-center">Rejected</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest text-center">Invalid</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {agentStats.filter(a => a.email.toLowerCase().includes(globalStaffSearch.toLowerCase())).map((stat, i) => (
-                <tr key={stat.email} className="hover:bg-indigo-50/30 transition-colors">
-                  <td className="px-6 py-4 font-bold text-sm text-gray-800">{stat.email}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 text-center font-medium">{stat.manager}</td>
-                  <td className="px-6 py-4 text-sm font-black text-gray-800 text-center">{stat.total}</td>
-                  <td className="px-6 py-4 text-sm font-black text-gray-500 text-center bg-gray-50/50">{stat.pending}</td>
-                  <td className="px-6 py-4 text-sm font-black text-blue-600 text-center bg-blue-50/30">{stat.called}</td>
-                  <td className="px-6 py-4 text-sm font-black text-purple-600 text-center bg-purple-50/30">{stat.whatsapp}</td>
-                  <td className="px-6 py-4 text-sm font-black text-yellow-600 text-center bg-yellow-50/30">{stat.thinking}</td>
-                  <td className="px-6 py-4 text-sm font-black text-green-600 text-center bg-green-50/30">{stat.accepted}</td>
-                  <td className="px-6 py-4 text-sm font-black text-red-600 text-center bg-red-50/30">{stat.rejected}</td>
-                  <td className="px-6 py-4 text-sm font-black text-gray-400 text-center">{stat.invalid}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {agentStats.length === 0 ? (
+          <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No leads assigned yet.</p></div>
+        ) : (() => {
+          const filtered = agentStats.filter(a => a.email.toLowerCase().includes(globalStaffSearch.toLowerCase()));
+          if (filtered.length === 0) return (
+            <div className="text-center py-12">
+              <div className="text-3xl mb-3">🔍</div>
+              <p className="font-bold text-gray-500">No staff match <span className="text-indigo-600">"{globalStaffSearch}"</span></p>
+              <button onClick={() => setGlobalStaffSearch('')} className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
+            </div>
+          );
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr style={{background: 'linear-gradient(135deg, #1e1b4b, #312e81)'}}>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Manager</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-center">Assigned</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest text-center">Pending</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-blue-300 uppercase tracking-widest text-center">Called</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-purple-300 uppercase tracking-widest text-center">WA'd</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-yellow-300 uppercase tracking-widest text-center">SMS'd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((agent, i) => (
+                    <tr key={i} className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors group">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
+                          <span className="text-sm font-bold text-gray-800">{agent.email}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5"><span className="text-sm text-gray-500 font-medium">{agent.manager}</span></td>
+                      <td className="px-5 py-3.5 text-center"><span className="text-sm font-black text-gray-900">{agent.total}</span></td>
+                      <td className="px-5 py-3.5 text-center"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg font-bold text-xs border border-gray-200">{agent.pending}</span></td>
+                      <td className="px-5 py-3.5 text-center"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-blue-100">{agent.called}</span></td>
+                      <td className="px-5 py-3.5 text-center"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
+                      <td className="px-5 py-3.5 text-center"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-lg font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -231,7 +260,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
                   const team = agentsList.filter(a => a.manager_email === m.email);
                   return (
                     <div key={m.id} className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden hover:border-blue-200 hover:shadow-md transition-all duration-300">
-                      <div className="p-5 border-b border-gray-100 bg-gradient-to-b from-gray-50/50 to-white">
+                      <div className="p-5 border-b border-blue-100 bg-blue-50/40">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase shadow-sm flex-shrink-0">{m.email.charAt(0)}</div>
                           <div className="min-w-0">

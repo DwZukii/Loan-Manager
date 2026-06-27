@@ -1121,7 +1121,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
-              <p className="text-xs text-gray-400">Called · WhatsApp · Accepted per agent</p>
+              <p className="text-xs text-gray-400">Called · WhatsApp · SMS per agent</p>
             </div>
           </div>
           <div className="p-6 h-72">
@@ -1137,7 +1137,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
                   <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
                   <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="accepted" name="Accepted" fill="#22c55e" radius={[4,4,0,0]} maxBarSize={36} />
+                  <Bar dataKey="thinking" name="SMS" fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -1412,23 +1412,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filtered.map(m => {
                       const team = agentsList.filter(a => a.manager_email === m.email);
-                      const gradients = ['from-indigo-500 to-blue-600','from-violet-500 to-purple-600','from-blue-500 to-cyan-600','from-emerald-500 to-teal-600'];
-                      const grad = gradients[m.email.charCodeAt(0) % gradients.length];
                       return (
-                        <div key={m.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+                        <div key={m.id} className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden hover:border-blue-200 hover:shadow-md transition-all duration-300">
                           <button
-                             type="button"
-                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(m); }}
-                             className={`bg-gradient-to-br ${grad} p-5 flex items-center gap-4 w-full text-left hover:brightness-110 transition-all duration-150 group`}
-                           >
-                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0">{m.email.charAt(0)}</div>
-                             <div className="min-w-0 flex-1">
-                               <p className="text-white font-bold text-sm truncate" title={m.email}>{m.full_name || m.email}</p>
-                               {m.full_name && <p className="text-white/70 text-xs truncate">{m.email}</p>}
-                               <span className="inline-flex items-center gap-1 mt-1 bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 bg-green-300 rounded-full"></span>{team.length} Staff</span>
-                             </div>
-                             <span className="text-white/60 text-xs opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">View →</span>
-                           </button>
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(m); }}
+                            className="w-full text-left p-5 border-b border-blue-100 bg-blue-50/40 hover:bg-blue-50 transition-colors block"
+                          >
+                            <div className="flex items-center gap-4 mb-4">
+                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase shadow-sm flex-shrink-0">{m.email.charAt(0)}</div>
+                              <div className="min-w-0">
+                                {m.full_name && <h4 className="font-extrabold text-gray-900 text-lg truncate leading-tight">{m.full_name}</h4>}
+                                <p className={`text-sm truncate font-bold text-gray-500 ${!m.full_name && 'text-lg text-gray-900'}`}>{m.email}</p>
+                              </div>
+                            </div>
+                            {m.contact_number ? (<div className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 w-full justify-center"><Phone className="w-4 h-4" />{m.contact_number}</div>) : (<div className="inline-flex items-center gap-1.5 text-sm text-gray-400 font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 w-full justify-center">No contact number</div>)}
+                          </button>
                           <div className="p-4 bg-white">
                             {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (() => {
                               const isExpanded = expandedManagers[m.id];
@@ -1436,11 +1435,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                               const hasMore = team.length > 3;
                               return (
                                 <>
-                                  <div className="grid grid-cols-1 gap-2">{visibleTeam.map((a) => { const staffGrads = ['from-indigo-500 to-blue-600','from-violet-500 to-purple-600','from-blue-500 to-cyan-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600']; const sg = staffGrads[a.email.charCodeAt(0) % staffGrads.length]; return (<button key={a.id} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(a); }} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors w-full text-left"><div className={`w-8 h-8 rounded-full bg-gradient-to-br ${sg} flex items-center justify-center text-white font-black text-sm uppercase flex-shrink-0`}>{a.email.charAt(0)}</div><p className="text-sm font-medium text-gray-700 truncate">{a.email}</p></button>); })}</div>
+                                  <div className="grid grid-cols-1 gap-2">{visibleTeam.map((a) => (<button key={a.id} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(a); }} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-sm uppercase flex-shrink-0">{a.email.charAt(0)}</div><p className="text-sm font-medium text-gray-700 truncate">{a.email}</p></button>))}</div>
                                   {hasMore && (
                                     <button 
                                       onClick={() => setExpandedManagers(prev => ({...prev, [m.id]: !prev[m.id]}))}
-                                      className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center gap-1 shadow-sm"
+                                      className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center shadow-sm"
                                     >
                                       {isExpanded ? 'Hide Staff \u2191' : `View All ${team.length} Staff \u2193`}
                                     </button>
