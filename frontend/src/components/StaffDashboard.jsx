@@ -177,15 +177,15 @@ Balas *“YA”* untuk semakan 🆓
 
   const smsPromoScript = `Salam sejahtera, 
 Maaf menganggu,
-Saya wakil pembiayaan Alrajhi.
+Saya wakil pembiayaan ALRAJHI BANK.
 
-Ciri yg ditawarkan Alrajhi:
+Ciri yg ditawarkan ALRAJHI:
 - dari 4.70 (tetap)
 - komitmen tinggi
 - satukan pembiayaan
 - ctos, saa, tunggakan dll
 
-Untuk semakan percuma, sila repy 'Ya'.
+Untuk semakan percuma, sila reply 'Ya'.
 terima kasih.`;
 
   const handleStatusChange = async (id, newStatus) => {
@@ -511,16 +511,16 @@ terima kasih.`;
               </div>
               
               <div className="flex flex-col gap-2 mb-2">
-                <a href={`tel:${currentLead.phone_number}`} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
+                <a href={`tel:${currentLead.phone_number}`} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
                 <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded-xl font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
                   SMS <svg className={`w-4 h-4 transition-transform ${isSmsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
                 {isSmsOpen && (
                   <div className="flex flex-col gap-2 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2 mt-0">
                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                      <a href={getSmsUrl(currentLead.phone_number)} className="flex-1 bg-white border border-slate-300 text-slate-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition shadow-sm">Blank Msg</a>
-                      <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
-                      <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
+                      <a href={getSmsUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-white border border-slate-300 text-slate-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition shadow-sm">Blank Msg</a>
+                      <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
+                      <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
                     </div>
                     <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="text-xs text-slate-700 font-bold underline text-center mt-1">Edit My Script</button>
                     {isEditingSmsScript && (
@@ -539,9 +539,9 @@ terima kasih.`;
               {showWaMenu && (
                 <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
                   <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                    <a href={whatsappLink} target="_blank" rel="noreferrer" className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Blank Msg</a>
-                    <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
-                    <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
+                    <a href={whatsappLink} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Blank Msg</a>
+                    <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
+                    <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
                   </div>
                   <button onClick={() => setIsEditingScript(!isEditingScript)} className="text-xs text-green-700 font-bold underline text-center mt-1">Edit My Script</button>
                   {isEditingScript && (
@@ -623,13 +623,11 @@ terima kasih.`;
 
           {totalLeads > 0 && (
             <div className="mb-6 space-y-4">
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-center"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-1 truncate">Pending</p><p className="text-xl font-black text-gray-700">{pendingCount}</p></div>
                 <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-3 text-center"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-1 truncate">Called</p><p className="text-xl font-black text-blue-700">{calledCount}</p></div>
                 <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-100 p-3 text-center"><p className="text-[10px] text-purple-600 font-bold uppercase tracking-wide mb-1 truncate">WA'd</p><p className="text-xl font-black text-purple-700">{whatsappCount}</p></div>
-                <div className="bg-green-50 rounded-xl shadow-sm border border-green-100 p-3 text-center"><p className="text-[10px] text-green-600 font-bold uppercase tracking-wide mb-1 truncate">Accepted</p><p className="text-xl font-black text-green-700">{acceptedCount}</p></div>
                 <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-100 p-3 text-center"><p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wide mb-1 truncate">SMS'd</p><p className="text-xl font-black text-yellow-700">{thinkingCount}</p></div>
-                <div className="bg-red-50 rounded-xl shadow-sm border border-red-100 p-3 text-center"><p className="text-[10px] text-red-600 font-bold uppercase tracking-wide mb-1 truncate">Rejected</p><p className="text-xl font-black text-red-700">{rejectedCount}</p></div>
               </div>
               <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
                 <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
@@ -664,7 +662,7 @@ terima kasih.`;
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                    <a href={`tel:${lead.phone_number}`} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
+                    <a href={`tel:${lead.phone_number}`} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
                     <button onClick={() => { setSelectedLead(lead); setCurrentNote(lead.agent_notes || ''); }} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
                   </div>
                 </div>

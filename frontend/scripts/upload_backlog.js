@@ -217,17 +217,29 @@ async function main() {
       chunks.push(uniqueNumbers.slice(j, j + chunkSize));
     }
 
+    const drawProgressBar = (current, total, text) => {
+      const width = 30;
+      const percent = Math.floor((current / total) * 100);
+      const filled = Math.min(width, Math.floor((width * current) / total));
+      const bar = '█'.repeat(filled) + '░'.repeat(Math.max(0, width - filled));
+      process.stdout.write(`\r${text} [${bar}] ${percent}% (${current}/${total})   `);
+    };
+
+    console.log(); // Newline from previous print
+
     let existingSet = new Set();
     try {
-      const results = await Promise.all(
-        chunks.map(chunk => supabase.rpc('check_duplicate_phones', { phone_numbers: chunk }))
-      );
-      results.forEach(({ data, error }) => {
+      for (let j = 0; j < chunks.length; j++) {
+        drawProgressBar(j + 1, chunks.length, "Checking duplicates");
+        const { data, error } = await supabase.rpc('check_duplicate_phones', { phone_numbers: chunks[j] });
         if (error) throw error;
         if (data) data.forEach(l => existingSet.add(l.phone_number));
-      });
+        // Add a small delay between duplicate checking chunks
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      console.log(); // Move to next line after progress bar finishes
     } catch (e) {
-      console.log(`❌ Error checking DB duplicates: ${e.message}`);
+      console.log(`\n❌ Error checking DB duplicates: ${e.message}`);
       continue;
     }
 
@@ -254,11 +266,21 @@ async function main() {
 
     let insertError = null;
     const insertChunkSize = 500;
+    const totalBatches = Math.ceil(leadsToInsert.length / insertChunkSize);
+    let batchCount = 0;
+    
     for (let k = 0; k < leadsToInsert.length; k += insertChunkSize) {
+      batchCount++;
+      drawProgressBar(batchCount, totalBatches, "Pushing to database");
+      
       const batch = leadsToInsert.slice(k, k + insertChunkSize);
       const { error } = await supabase.from('leads').insert(batch, { ignoreDuplicates: true });
       if (error) { insertError = error; break; }
+      
+      // Add a small pause to prevent overloading DB connections
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
+    console.log(); // Move to next line after progress bar finishes
 
     if (insertError) {
       console.log(`❌ Error inserting to DB: ${insertError.message}`);
