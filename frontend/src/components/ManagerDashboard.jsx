@@ -191,24 +191,33 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   // ── MODE A: All Numbers ───────────────────────────────────────────────────
   // Original behaviour — untouched. Iterates every cell and grabs all valid
   // Malaysian phone numbers regardless of age or IC.
-  const runAllNumbersExtraction = (rawData) => {
+  const runAllNumbersExtraction = async (rawData, onProgress) => {
     const extracted = []
-    rawData.forEach(row => {
-      row.forEach(cell => {
-        if (!cell) return
-        const cellStr = String(cell)
-        const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
-        const parts = normalized.split(',')
-        parts.forEach(part => {
-          let clean = part.replace(/\D/g, '')
-          if (!clean) return
-          if (clean.startsWith('0060')) clean = clean.substring(2)
-          if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
-          else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean
-          if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean)
+    const YIELD_EVERY = 5000
+    for (let r = 0; r < rawData.length; r++) {
+      const row = rawData[r]
+      if (row) {
+        row.forEach(cell => {
+          if (!cell) return
+          const cellStr = String(cell)
+          const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
+          const parts = normalized.split(',')
+          parts.forEach(part => {
+            let clean = part.replace(/\D/g, '')
+            if (!clean) return
+            if (clean.startsWith('0060')) clean = clean.substring(2)
+            if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
+            else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean
+            if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean)
+          })
         })
-      })
-    })
+      }
+      if ((r + 1) % YIELD_EVERY === 0) {
+        onProgress && onProgress(r + 1, rawData.length)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+    }
+    onProgress && onProgress(rawData.length, rawData.length)
     return extracted
   }
 
@@ -223,12 +232,20 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   //   clear phone + ambiguous (no IC) → treat ambiguous as IC
   //   two ambiguous, nothing else     → first = IC, second = phone
   //   single ambiguous only           → skip (cannot safely determine role)
-  const runAgeFilteredExtraction = (rawData, minA, maxA) => {
+  const runAgeFilteredExtraction = async (rawData, minA, maxA, onProgress) => {
     const extracted = []
     let rowsScanned = 0, rowsWithIC = 0, rowsMatched = 0
+    const YIELD_EVERY = 5000
 
-    rawData.forEach(row => {
-      if (!row || row.length === 0) return
+    for (let r = 0; r < rawData.length; r++) {
+      const row = rawData[r]
+      if (!row || row.length === 0) {
+        if ((r + 1) % YIELD_EVERY === 0) {
+          onProgress && onProgress(r + 1, rawData.length)
+          await new Promise(resolve => setTimeout(resolve, 0))
+        }
+        continue
+      }
       rowsScanned++
 
       const ics = [], phones = [], ambiguous = []
@@ -259,15 +276,28 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       }
       // ambiguous.length === 1 with nothing else → unresolvable, skip
 
-      if (!icStr || !phoneStr) return
+      if (!icStr || !phoneStr) {
+        if ((r + 1) % YIELD_EVERY === 0) {
+          onProgress && onProgress(r + 1, rawData.length)
+          await new Promise(resolve => setTimeout(resolve, 0))
+        }
+        continue
+      }
       rowsWithIC++
 
       const age = extractAge(icStr)
-      if (age < minA || age > maxA) return
-      rowsMatched++
-      extracted.push(phoneStr)
-    })
+      if (age >= minA && age <= maxA) {
+        rowsMatched++
+        extracted.push(phoneStr)
+      }
 
+      if ((r + 1) % YIELD_EVERY === 0) {
+        onProgress && onProgress(r + 1, rawData.length)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+    }
+
+    onProgress && onProgress(rawData.length, rawData.length)
     return { numbers: extracted, rowsScanned, rowsWithIC, rowsMatched }
   }
 
@@ -303,15 +333,23 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
       for (let i = 0; i < filesToScan.length; i++) {
         setUploadStatus(`Scanning file ${i + 1} of ${filesToScan.length}: "${filesToScan[i].name}"...`);
-        setAnalyzeProgress(Math.round((i / filesToScan.length) * 100));
-        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update
-        
+        const fileBase = i / filesToScan.length;
+        const fileSlice = 1 / filesToScan.length;
+        setAnalyzeProgress(Math.round(fileBase * 100));
+        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to paint before heavy parse
+
         const rawData = await readFileData(filesToScan[i]);
 
+        // Progress callback: maps row progress within this file to the global % slice
+        const onRowProgress = (rowsDone, totalRows) => {
+          const intraFile = totalRows > 0 ? rowsDone / totalRows : 1;
+          setAnalyzeProgress(Math.round((fileBase + intraFile * fileSlice) * 100));
+        };
+
         if (extractMode === 'all') {
-          allExtracted = allExtracted.concat(runAllNumbersExtraction(rawData));
+          allExtracted = allExtracted.concat(await runAllNumbersExtraction(rawData, onRowProgress));
         } else {
-          const { numbers, rowsScanned, rowsWithIC, rowsMatched } = runAgeFilteredExtraction(rawData, minAge, maxAge);
+          const { numbers, rowsScanned, rowsWithIC, rowsMatched } = await runAgeFilteredExtraction(rawData, minAge, maxAge, onRowProgress);
           allExtracted = allExtracted.concat(numbers);
           totalRowsScanned += rowsScanned;
           totalRowsWithIC  += rowsWithIC;
