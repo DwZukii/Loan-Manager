@@ -530,18 +530,34 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     
     setIsAssigning(true);
     setAssignStatus(`Assigning leads...`)
-    const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
-    if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
-
-    const ids = leadsToAssign.map(lead => lead.id)
-    // Chunk the update to avoid a large .in() overloading the DB
-    const updateChunkSize = 500;
+    
+    let totalAssigned = 0;
     let assignError = null;
-    for (let i = 0; i < ids.length; i += updateChunkSize) {
-      const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
-      if (error) { assignError = error; break; }
+    const chunkSize = 500;
+    
+    for (let i = 0; i < finalAmount; i += chunkSize) {
+      const currentLimit = Math.min(chunkSize, finalAmount - i);
+      setAssignStatus(`Assigning... (${totalAssigned} / ${finalAmount})`);
+      
+      const { data: leadsToAssign, error: fetchError } = await supabase.from('leads')
+        .select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet)
+        .limit(currentLimit);
+        
+      if (fetchError) { assignError = fetchError; break; }
+      if (!leadsToAssign || leadsToAssign.length === 0) break;
+
+      const ids = leadsToAssign.map(lead => lead.id)
+      const { error: updateError } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids);
+      if (updateError) { assignError = updateError; break; }
+      
+      totalAssigned += ids.length;
+      if (leadsToAssign.length < currentLimit) break;
     }
-    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); setTimeout(() => setAssignStatus(''), 3000); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
+    
+    if (!assignError || totalAssigned > 0) { 
+      setAssignStatus(`✅ Assigned ${totalAssigned} leads.`); 
+      setTimeout(() => setAssignStatus(''), 3000); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
+    }
     else setAssignStatus(`Error: ${assignError.message}`)
     setIsAssigning(false);
   }
@@ -554,20 +570,32 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     
     setIsTransferring(true);
     setTransferStatus(`Transferring leads...`)
-    const { data: leadsToTransfer, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet).limit(finalAmount)
-    if (fetchError || !leadsToTransfer) return setTransferStatus(`Error: Could not fetch leads. Please try again.`)
-
-    const ids = leadsToTransfer.map(lead => lead.id)
-    // Chunk the update — also sets is_reviewed: false which triggers Manager's "System Alert"
-    const updateChunkSize = 500;
+    
+    let totalTransferred = 0;
     let transferError = null;
-    for (let i = 0; i < ids.length; i += updateChunkSize) {
-      const { error } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, manager_reviewed: false }).in('id', ids.slice(i, i + updateChunkSize));
-      if (error) { transferError = error; break; }
+    const chunkSize = 500;
+    
+    for (let i = 0; i < finalAmount; i += chunkSize) {
+      const currentLimit = Math.min(chunkSize, finalAmount - i);
+      setTransferStatus(`Transferring... (${totalTransferred} / ${finalAmount})`);
+      
+      const { data: leadsToTransfer, error: fetchError } = await supabase.from('leads')
+        .select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', transferSet)
+        .limit(currentLimit);
+        
+      if (fetchError) { transferError = fetchError; break; }
+      if (!leadsToTransfer || leadsToTransfer.length === 0) break;
+
+      const ids = leadsToTransfer.map(lead => lead.id)
+      const { error: updateError } = await supabase.from('leads').update({ pool_owner: transferManagerEmail, manager_reviewed: false }).in('id', ids);
+      if (updateError) { transferError = updateError; break; }
+      
+      totalTransferred += ids.length;
+      if (leadsToTransfer.length < currentLimit) break;
     }
 
-    if (!transferError) { 
-      setTransferStatus(`✅ Transferred ${ids.length} leads to manager.`); 
+    if (!transferError || totalTransferred > 0) { 
+      setTransferStatus(`✅ Transferred ${totalTransferred} leads to manager.`); 
       setTransferAmount('50'); setTransferManagerEmail(''); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) 
     } else setTransferStatus(`Error: ${transferError.message}`)
     setIsTransferring(false);
@@ -737,6 +765,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned' }).eq('assigned_to', agentEmail).eq('status', 'Pending')
     if (!error) { toast.success(`Revoked ${pendingCount} leads.`); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
+
+
 
   const loadAgentProfile = async (agent) => {
     setIsProfileLoading(true); setSelectedAgentProfile(agent); setProfileFilter('All'); setProfilePage(1)
@@ -1304,7 +1334,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                         </div>
                       </td>
                       <td className="px-5 py-3.5"><span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-black border border-indigo-100">{manager.total_agents} Staff</span></td>
-                      <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-black border border-blue-100">{manager.unassigned_pool} Leads</span></td>
+                      <td className="px-5 py-3.5">
+                        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-black border border-blue-100">{manager.unassigned_pool} Leads</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1367,9 +1399,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 )}
               </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
-              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50">⚡ {isCreatingAcc ? 'Creating...' : 'Create Secure Account'}</button>
-              {accCreateStatus && <p className={`text-sm font-bold px-4 py-2 rounded-xl ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
+            <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-4">
+              {accCreateStatus && <p className={`text-sm font-bold px-4 py-3 rounded-xl ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
+              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50 w-full sm:w-auto self-start">⚡ {isCreatingAcc ? 'Creating...' : 'Create Secure Account'}</button>
             </div>
           </div>
         </div>

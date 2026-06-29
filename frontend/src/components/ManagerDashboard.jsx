@@ -456,18 +456,34 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     
     setIsAssigning(true);
     setAssignStatus(`Assigning leads...`)
-    const { data: leadsToAssign, error: fetchError } = await supabase.from('leads').select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet).limit(finalAmount)
-    if (fetchError || !leadsToAssign) return setAssignStatus(`Error: Could not fetch leads. Please try again.`)
-
-    const ids = leadsToAssign.map(lead => lead.id)
-    // Chunk the update to avoid a large .in() overloading the DB
-    const updateChunkSize = 500;
+    
+    let totalAssigned = 0;
     let assignError = null;
-    for (let i = 0; i < ids.length; i += updateChunkSize) {
-      const { error } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids.slice(i, i + updateChunkSize));
-      if (error) { assignError = error; break; }
+    const chunkSize = 500;
+    
+    for (let i = 0; i < finalAmount; i += chunkSize) {
+      const currentLimit = Math.min(chunkSize, finalAmount - i);
+      setAssignStatus(`Assigning... (${totalAssigned} / ${finalAmount})`);
+      
+      const { data: leadsToAssign, error: fetchError } = await supabase.from('leads')
+        .select('id').eq('assigned_to', 'unassigned').eq('pool_owner', userEmail).eq('lead_set', assignSet)
+        .limit(currentLimit);
+        
+      if (fetchError) { assignError = fetchError; break; }
+      if (!leadsToAssign || leadsToAssign.length === 0) break;
+
+      const ids = leadsToAssign.map(lead => lead.id)
+      const { error: updateError } = await supabase.from('leads').update({ assigned_to: assignEmail }).in('id', ids);
+      if (updateError) { assignError = updateError; break; }
+      
+      totalAssigned += ids.length;
+      if (leadsToAssign.length < currentLimit) break;
     }
-    if (!assignError) { setAssignStatus(`✅ Assigned ${ids.length} leads.`); setTimeout(() => setAssignStatus(''), 3000); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) }
+    
+    if (!assignError || totalAssigned > 0) { 
+      setAssignStatus(`✅ Assigned ${totalAssigned} leads.`); 
+      setTimeout(() => setAssignStatus(''), 3000); queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }) 
+    }
     else setAssignStatus(`Error: ${assignError.message}`)
     setIsAssigning(false);
   }
@@ -1056,9 +1072,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 </div>
               </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
-              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50">⚡ {isCreatingAcc ? 'Creating...' : 'Create Staff Account'}</button>
-              {accCreateStatus && <p className={`text-sm font-bold px-4 py-2 rounded-xl ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
+            <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-4">
+              {accCreateStatus && <p className={`text-sm font-bold px-4 py-3 rounded-xl ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
+              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50 w-full sm:w-auto self-start">⚡ {isCreatingAcc ? 'Creating...' : 'Create Staff Account'}</button>
             </div>
           </div>
         </div>
