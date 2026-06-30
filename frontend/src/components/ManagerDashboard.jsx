@@ -31,6 +31,8 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [uploadStatus, setUploadStatus] = useState('')
   
   const [assignEmail, setAssignEmail] = useState('')
+  const [assignEmailQuery, setAssignEmailQuery] = useState('')
+  const [showStaffDropdown, setShowStaffDropdown] = useState(false)
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
   const [assignStatus, setAssignStatus] = useState('')
@@ -759,8 +761,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative overflow-hidden flex flex-col h-full">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative flex flex-col h-full">
           <h2 className="text-2xl font-bold text-emerald-900 mb-6 flex items-center gap-3 relative z-10">
             <span className="bg-emerald-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-emerald-300 flex-shrink-0">2</span> 
             Distribute to Team
@@ -799,12 +800,47 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 </datalist>
               </div>
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Select Staff Member</label>
-              <select value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow">
-                <option value="">Choose a staff member...</option>
-                {myTeamEmails.map(email => <option key={email} value={email}>{email}</option>)}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search or type staff email..."
+                  value={assignEmailQuery}
+                  onChange={e => { setAssignEmailQuery(e.target.value); setAssignEmail(''); setShowStaffDropdown(true); }}
+                  onFocus={() => setShowStaffDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowStaffDropdown(false), 150)}
+                  className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow pr-8"
+                />
+                {assignEmailQuery && (
+                  <button
+                    onMouseDown={e => { e.preventDefault(); setAssignEmailQuery(''); setAssignEmail(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
+                  >✕</button>
+                )}
+              </div>
+              {showStaffDropdown && (() => {
+                const filtered = myTeamEmails.filter(email => email.toLowerCase().includes(assignEmailQuery.toLowerCase()));
+                if (filtered.length === 0) return null;
+                return (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-emerald-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                    {filtered.map(email => (
+                      <button
+                        key={email}
+                        onMouseDown={e => { e.preventDefault(); setAssignEmail(email); setAssignEmailQuery(email); setShowStaffDropdown(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0 ${
+                          assignEmail === email ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">{email.charAt(0)}</span>
+                          {email}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-auto pt-2 space-y-3">
               <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Numbers'}</button>

@@ -38,6 +38,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [uploadStatus, setUploadStatus] = useState('')
   
   const [assignEmail, setAssignEmail] = useState('')
+  const [assignEmailQuery, setAssignEmailQuery] = useState('')
+  const [showStaffDropdown, setShowStaffDropdown] = useState(false)
   const [assignAmount, setAssignAmount] = useState('50')
   const [assignSet, setAssignSet] = useState('Set A') 
   const [assignStatus, setAssignStatus] = useState('')
@@ -54,6 +56,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [maxAge, setMaxAge] = useState(55)
   
   const [transferManagerEmail, setTransferManagerEmail] = useState('')
+  const [transferManagerQuery, setTransferManagerQuery] = useState('')
+  const [showManagerDropdown, setShowManagerDropdown] = useState(false)
   const [transferAmount, setTransferAmount] = useState('50')
   const [transferSet, setTransferSet] = useState('Set A')
   const [transferStatus, setTransferStatus] = useState('')
@@ -950,8 +954,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative overflow-hidden flex flex-col h-full">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative flex flex-col h-full">
           <h2 className="text-2xl font-bold text-emerald-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-emerald-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-emerald-300 flex-shrink-0">2</span> Assign to Staff</h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
             <div className="bg-white rounded-xl border border-emerald-200 flex flex-col text-sm text-emerald-900 shadow-sm overflow-hidden">
@@ -970,9 +973,47 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 <datalist id="assign-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="300" /></datalist>
               </div>
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Select Staff Member</label>
-              <select value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow"><option value="">Choose a staff member...</option>{agentsList.map(a => <option key={a.id} value={a.email}>{a.email}</option>)}</select>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search or type staff email..."
+                  value={assignEmailQuery}
+                  onChange={e => { setAssignEmailQuery(e.target.value); setAssignEmail(''); setShowStaffDropdown(true); }}
+                  onFocus={() => setShowStaffDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowStaffDropdown(false), 150)}
+                  className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow pr-8"
+                />
+                {assignEmailQuery && (
+                  <button
+                    onMouseDown={e => { e.preventDefault(); setAssignEmailQuery(''); setAssignEmail(''); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
+                  >✕</button>
+                )}
+              </div>
+              {showStaffDropdown && (() => {
+                const filtered = agentsList.filter(a => a.email.toLowerCase().includes(assignEmailQuery.toLowerCase()));
+                if (filtered.length === 0) return null;
+                return (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-emerald-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                    {filtered.map(a => (
+                      <button
+                        key={a.email}
+                        onMouseDown={e => { e.preventDefault(); setAssignEmail(a.email); setAssignEmailQuery(a.email); setShowStaffDropdown(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0 ${
+                          assignEmail === a.email ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">{a.email.charAt(0)}</span>
+                          {a.email}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-auto pt-2 space-y-3">
               <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Leads'}</button>
@@ -983,8 +1024,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-blue-200 relative overflow-hidden flex flex-col xl:flex-row gap-8 items-center mt-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-blue-200 relative z-20 flex flex-col xl:flex-row gap-8 items-center mt-6">
+
         <div className="xl:w-1/3 relative z-10 text-center xl:text-left flex flex-col items-center xl:items-start">
           <h2 className="text-2xl font-bold text-blue-900 mb-3 flex items-center gap-3"><span className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-blue-300">3</span> Share to Managers</h2>
           <p className="text-sm text-blue-700/80 max-w-sm">Transfer robust leads from your Admin pool directly into a Manager's command pool seamlessly.</p>
@@ -1000,9 +1041,56 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <input type="number" list="transfer-amounts" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" placeholder="Type..." min="1" />
             <datalist id="transfer-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="500" /><option value="1000" /></datalist>
           </div>
-          <div className="w-full sm:w-2/4">
+          <div className="w-full sm:w-2/4 relative">
             <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">Target Manager</label>
-            <select value={transferManagerEmail} onChange={(e) => setTransferManagerEmail(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"><option value="">Select Manager...</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search or type manager email..."
+                value={transferManagerQuery}
+                onChange={e => {
+                  setTransferManagerQuery(e.target.value);
+                  setTransferManagerEmail('');
+                  setShowManagerDropdown(true);
+                }}
+                onFocus={() => setShowManagerDropdown(true)}
+                onBlur={() => setTimeout(() => setShowManagerDropdown(false), 150)}
+                className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow pr-8"
+              />
+              {transferManagerQuery && (
+                <button
+                  onMouseDown={e => { e.preventDefault(); setTransferManagerQuery(''); setTransferManagerEmail(''); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors text-sm"
+                >✕</button>
+              )}
+            </div>
+            {showManagerDropdown && (() => {
+              const filtered = managersList.filter(m => m.email.toLowerCase().includes(transferManagerQuery.toLowerCase()));
+              if (filtered.length === 0) return null;
+              return (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-blue-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                  {filtered.map(m => (
+                    <button
+                      key={m.email}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        setTransferManagerEmail(m.email);
+                        setTransferManagerQuery(m.email);
+                        setShowManagerDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 ${
+                        transferManagerEmail === m.email ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-700'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">{m.email.charAt(0)}</span>
+                        {m.email}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           <div className="w-full sm:w-auto">
             <button onClick={handleTransferLeads} disabled={isTransferring} className="w-full bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-blue-700 shadow flex-shrink-0 transition-all whitespace-nowrap disabled:opacity-50">{isTransferring ? 'Transferring...' : 'Transfer Leads'}</button>
@@ -1276,9 +1364,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
           );
           return (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
               <table className="w-full text-left border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr style={{background: 'linear-gradient(135deg, #1e1b4b, #312e81)'}}>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Assigned</th>
@@ -1353,9 +1441,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
           );
           return (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
               <table className="w-full text-left border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr style={{background: 'linear-gradient(135deg, #1e1b4b, #312e81)'}}>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Manager</th>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff Count</th>
