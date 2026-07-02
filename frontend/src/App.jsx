@@ -2,7 +2,8 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './supabase'
 import { Toaster } from 'sonner'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Phone, CheckCircle } from 'lucide-react'
+import { Phone, CheckCircle, RefreshCw } from 'lucide-react'
+import { useVersionCheck } from './hooks/useVersionCheck'
 
 const queryClient = new QueryClient()
 
@@ -17,6 +18,7 @@ export default function App() {
   const [userEmail, setUserEmail] = useState(null)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isProfileComplete, setIsProfileComplete] = useState(false)
+  const updateAvailable = useVersionCheck()
 
   // Gate state
   const [gatePhone, setGatePhone] = useState('')
@@ -119,6 +121,28 @@ export default function App() {
         </div>
       }>
         <Toaster position="top-center" richColors />
+
+        {/* ── Update Available Banner ─────────────────────────────────────── */}
+        {updateAvailable && (
+          <div
+            className="fixed bottom-5 right-5 z-[9999] flex items-center gap-4 bg-gray-900 text-white px-5 py-4 rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 duration-500"
+            style={{ maxWidth: 380 }}
+          >
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin" style={{ animationDuration: '3s' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-white">New update available</p>
+              <p className="text-xs text-gray-400 mt-0.5">Refresh to get the latest version.</p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
+            >
+              Refresh Now
+            </button>
+          </div>
+        )}
 
         {/* Dashboards always render underneath — gate overlays on top */}
         {userRole === 'super_admin' && <AdminDashboard userEmail={userEmail} userRole={userRole} onLogout={handleLogout} />}

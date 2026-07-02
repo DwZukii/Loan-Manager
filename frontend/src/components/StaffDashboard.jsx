@@ -333,6 +333,12 @@ terima kasih.`;
     return `sms:+${phone}${separator}body=${encodedText}`;
   };
 
+  // Phone dialer expects local format (01...) not international format (601...)
+  const getCallUrl = (phone) => {
+    const local = String(phone).startsWith('60') ? '0' + String(phone).slice(2) : String(phone);
+    return `tel:${local}`;
+  };
+
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
 
   const renderNav = () => (
@@ -511,7 +517,7 @@ terima kasih.`;
               </div>
               
               <div className="flex flex-col gap-2 mb-2">
-                <a href={`tel:${currentLead.phone_number}`} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
+                <a href={getCallUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
                 <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded-xl font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
                   SMS <svg className={`w-4 h-4 transition-transform ${isSmsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
@@ -662,7 +668,7 @@ terima kasih.`;
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                    <a href={`tel:${lead.phone_number}`} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
+                    <a href={getCallUrl(lead.phone_number)} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
                     <button onClick={() => { setSelectedLead(lead); setCurrentNote(lead.agent_notes || ''); }} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
                   </div>
                 </div>
