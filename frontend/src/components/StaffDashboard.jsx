@@ -175,18 +175,7 @@ Balas *“YA”* untuk semakan 🆓
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
 
-  const smsPromoScript = `Salam sejahtera, 
-Maaf menganggu,
-Saya wakil pembiayaan ALRAJHI BANK.
-
-Ciri yg ditawarkan ALRAJHI:
-- dari 4.70 (tetap)
-- komitmen tinggi
-- satukan pembiayaan
-- ctos, saa, tunggakan dll
-
-Untuk semakan percuma, sila reply 'Ya'.
-terima kasih.`;
+  const smsPromoScript = `RM Public Islamic Bank: Kurangkan komitmen bulanan anda sekarang. Gabung pembiayaan dengan kadar tetap dari 3.88%. Semakan adalah PERCUMA, balas 'YA'.`;
 
   const handleStatusChange = async (id, newStatus) => {
     queryClient.setQueryData(['staffData', userEmail], (oldData) => 

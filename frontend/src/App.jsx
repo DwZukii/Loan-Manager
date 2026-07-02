@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './supabase'
 import { Toaster } from 'sonner'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Phone, CheckCircle, RefreshCw } from 'lucide-react'
 import { useVersionCheck } from './hooks/useVersionCheck'
 
@@ -115,7 +116,8 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={
+      <ErrorBoundary>
+        <Suspense fallback={
         <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-400">
           Loading workspace...
         </div>
@@ -230,6 +232,7 @@ export default function App() {
           </div>
         )}
       </Suspense>
+      </ErrorBoundary>
     </QueryClientProvider>
   )
 }
