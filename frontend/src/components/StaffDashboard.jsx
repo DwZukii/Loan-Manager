@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
-import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare } from 'lucide-react'
+import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStaffData } from '../hooks/useStaffData'
@@ -15,6 +15,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [activeTab, setActiveTab] = useState('leads') 
   const [selectedLead, setSelectedLead] = useState(null)
   const [statusFilter, setStatusFilter] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const leadsPerPage = 20
   
@@ -581,7 +582,11 @@ Balas *“YA”* untuk semakan 🆓
     )
   }
 
-  const filteredLeads = leads.filter(lead => statusFilter === 'All' ? true : lead.status === statusFilter)
+  const filteredLeads = leads.filter(lead => {
+    const matchesStatus = statusFilter === 'All' || lead.status === statusFilter
+    const matchesSearch = searchQuery === '' || lead.phone_number.includes(searchQuery)
+    return matchesStatus && matchesSearch
+  })
   const currentLeads = filteredLeads.slice((currentPage - 1) * leadsPerPage, currentPage * leadsPerPage)
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage)
   
@@ -604,16 +609,28 @@ Balas *“YA”* untuk semakan 🆓
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">My Leads</h1>
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="p-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-              <option value="All">All Leads</option>
-              <option value="Pending">Pending</option>
-              <option value="Called">Called</option>
-              <option value="WhatsApp Sent">WhatsApp'd</option>
-              <option value="Accepted">Accepted</option>
-              <option value="SMS Sent">SMS Sent</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Invalid Number">Invalid Number</option>
-            </select>
+            <div className="flex flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search number..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-full"
+                />
+              </div>
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="p-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm shrink-0">
+                <option value="All">All Leads</option>
+                <option value="Pending">Pending</option>
+                <option value="Called">Called</option>
+                <option value="WhatsApp Sent">WhatsApp'd</option>
+                <option value="Accepted">Accepted</option>
+                <option value="SMS Sent">SMS Sent</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Invalid Number">Invalid Number</option>
+              </select>
+            </div>
           </div>
 
           {totalLeads > 0 && (
@@ -636,6 +653,7 @@ Balas *“YA”* untuk semakan 🆓
               </div>
             </div>
           )}
+
 
           {filteredLeads.length === 0 ? <div className="bg-white rounded-2xl shadow-sm p-10 text-center font-medium text-gray-500">No numbers found.</div> : (
             <div className="space-y-4">
