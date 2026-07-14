@@ -45,6 +45,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [isSmsOpen, setIsSmsOpen] = useState(false)
   const [isEditingSmsScript, setIsEditingSmsScript] = useState(false)
   const [customSmsScript, setCustomSmsScript] = useState(() => localStorage.getItem(`sms_script_${userEmail}`) || '')
+  const [useWaBusiness, setUseWaBusiness] = useState(() => localStorage.getItem(`wa_business_${userEmail}`) !== 'false')
   
   const handleSaveScript = () => {
     localStorage.setItem(`whatsapp_script_${userEmail}`, customScript);
@@ -74,6 +75,31 @@ export default function StaffDashboard({ userEmail, onLogout }) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
+
+  // Save selected lead ID to sessionStorage so mobile browsers can restore after reload
+  useEffect(() => {
+    if (selectedLead) {
+      sessionStorage.setItem(`selected_lead_${userEmail}`, String(selectedLead.id));
+    } else {
+      sessionStorage.removeItem(`selected_lead_${userEmail}`);
+    }
+  }, [selectedLead, userEmail]);
+
+  // On mount: restore selected lead once data is available
+  useEffect(() => {
+    if (leads.length === 0) return;
+    const savedId = sessionStorage.getItem(`selected_lead_${userEmail}`);
+    if (savedId && !selectedLead) {
+      const match = leads.find(l => String(l.id) === savedId);
+      if (match) {
+        setSelectedLead(match);
+        setCurrentNote(match.agent_notes || '');
+      } else {
+        sessionStorage.removeItem(`selected_lead_${userEmail}`);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads, userEmail]);
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackMessage.trim()) return
@@ -310,8 +336,9 @@ Balas *“YA”* untuk semakan 🆓
     const waMeUrl = `https://wa.me/${phone}${text ? `?text=${encodedText}` : ''}`;
     
     if (isAndroid) {
+      const pkg = useWaBusiness ? 'com.whatsapp.w4b' : 'com.whatsapp';
       const fallbackUrl = encodeURIComponent(waMeUrl);
-      return `intent://send?phone=${phone}${text ? `&text=${encodedText}` : ''}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
+      return `intent://send?phone=${phone}${text ? `&text=${encodedText}` : ''}#Intent;scheme=whatsapp;package=${pkg};S.browser_fallback_url=${fallbackUrl};end`;
     }
     return waMeUrl;
   };
@@ -489,7 +516,7 @@ Balas *“YA”* untuk semakan 🆓
         {renderMobileMenu()}
         <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
-            <button onClick={() => { setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
+            <button onClick={() => { sessionStorage.removeItem(`selected_lead_${userEmail}`); setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
             <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
               <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{currentLead.phone_number}</h2>
@@ -534,6 +561,24 @@ Balas *“YA”* untuk semakan 🆓
 
               {showWaMenu && (
                 <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
+                  {/* WhatsApp app toggle */}
+                  <div className="flex items-center justify-between px-1 mb-1">
+                    <span className="text-xs font-bold text-green-800">App:</span>
+                    <div className="flex items-center gap-1 bg-white border border-green-200 rounded-lg p-0.5">
+                      <button
+                        onClick={() => { setUseWaBusiness(false); localStorage.setItem(`wa_business_${userEmail}`, 'false'); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                          !useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
+                        }`}
+                      >Personal</button>
+                      <button
+                        onClick={() => { setUseWaBusiness(true); localStorage.setItem(`wa_business_${userEmail}`, 'true'); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                          useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
+                        }`}
+                      >Business</button>
+                    </div>
+                  </div>
                   <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                     <a href={whatsappLink} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Blank Msg</a>
                     <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
