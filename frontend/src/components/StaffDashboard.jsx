@@ -536,12 +536,11 @@ Balas *“YA”* untuk semakan 🆓
               <div className="flex flex-col gap-2 mb-2">
                 <a href={getCallUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
                 <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded-xl font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
-                  SMS <svg className={`w-4 h-4 transition-transform ${isSmsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  SMS
                 </button>
                 {isSmsOpen && (
                   <div className="flex flex-col gap-2 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2 mt-0">
                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                      <a href={getSmsUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-white border border-slate-300 text-slate-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition shadow-sm">Blank Msg</a>
                       <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
                       <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
                     </div>
@@ -555,15 +554,14 @@ Balas *“YA”* untuk semakan 🆓
                   </div>
                 )}
                 <button onClick={() => setShowWaMenu(!showWaMenu)} className="w-full bg-green-500 text-white text-center py-3 rounded-xl font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
-                  WhatsApp <svg className={`w-4 h-4 transition-transform ${showWaMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  WhatsApp
                 </button>
               </div>
 
               {showWaMenu && (
                 <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
                   {/* WhatsApp app toggle */}
-                  <div className="flex items-center justify-between px-1 mb-1">
-                    <span className="text-xs font-bold text-green-800">App:</span>
+                  <div className="flex items-center justify-end px-1 mb-1">
                     <div className="flex items-center gap-1 bg-white border border-green-200 rounded-lg p-0.5">
                       <button
                         onClick={() => { setUseWaBusiness(false); localStorage.setItem(`wa_business_${userEmail}`, 'false'); }}
@@ -580,7 +578,6 @@ Balas *“YA”* untuk semakan 🆓
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                    <a href={whatsappLink} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-white border border-green-200 text-green-700 text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">Blank Msg</a>
                     <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
                     <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
                   </div>
