@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabase';
-import { User, KeyRound, LogOut, X, Eye, EyeOff } from 'lucide-react';
+import { User, KeyRound, LogOut, X, Eye, EyeOff, Bug } from 'lucide-react';
 import ProfilePage from './ProfilePage';
 
-export default function UserDropdown({ userEmail, userRole, onLogout }) {
+export default function UserDropdown({ userEmail, userRole, onLogout, onReportIssue }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -115,10 +115,17 @@ export default function UserDropdown({ userEmail, userRole, onLogout }) {
               <span>Your Profile</span>
             </button>
 
-            <button onClick={() => { setIsPasswordModalOpen(true); setIsOpen(false); }} className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-indigo-200 hover:text-white hover:bg-white/5 cursor-pointer text-left group transition-colors">
+            <button onClick={() => { setIsPasswordModalOpen(true); setIsOpen(false); }} className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-indigo-200 hover:text-white hover:bg-white/5 cursor-pointer text-left group transition-colors w-full">
               <KeyRound className="w-5 h-5 text-indigo-300 group-hover:text-white transition-colors" /> 
               <span>Change Password</span>
             </button>
+
+            {onReportIssue && (
+              <button onClick={() => { onReportIssue(); setIsOpen(false); }} className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-indigo-200 hover:text-white hover:bg-white/5 cursor-pointer text-left group transition-colors w-full">
+                <Bug className="w-5 h-5 text-indigo-300 group-hover:text-white transition-colors" /> 
+                <span>Report Issue</span>
+              </button>
+            )}
             
             <div className="mt-1 pt-2 border-t border-white/10">
               <button onClick={onLogout} className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition-colors text-left w-full">

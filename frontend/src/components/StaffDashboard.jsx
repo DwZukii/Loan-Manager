@@ -129,10 +129,6 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const renderFeedbackModal = () => (
     <>
       <ConfirmDialog />
-      <button onClick={() => setIsFeedbackModalOpen(true)} className="fixed bottom-20 md:bottom-8 right-6 z-50 bg-indigo-600 text-white rounded-full p-4 shadow-2xl hover:bg-indigo-700 transition-all hover:scale-105 border-4 border-white group">
-        <Bug className="w-6 h-6" />
-        <span className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Report Issue</span>
-      </button>
 
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -381,7 +377,7 @@ Balas *“YA”* untuk semakan 🆓
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <UserDropdown userEmail={userEmail} userRole="agent" onLogout={onLogout} />
+          <UserDropdown userEmail={userEmail} userRole="agent" onLogout={onLogout} onReportIssue={() => setIsFeedbackModalOpen(true)} />
         </div>
       </div>
     </nav>
