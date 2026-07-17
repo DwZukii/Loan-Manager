@@ -46,6 +46,16 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [isEditingSmsScript, setIsEditingSmsScript] = useState(false)
   const [customSmsScript, setCustomSmsScript] = useState(() => localStorage.getItem(`sms_script_${userEmail}`) || '')
   const [useWaBusiness, setUseWaBusiness] = useState(() => localStorage.getItem(`wa_business_${userEmail}`) !== 'false')
+  const [copiedScript, setCopiedScript] = useState(null) // 'sms' | 'wa' | null
+
+  const copyToClipboard = (text, key) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+    } else {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+    }
+    setCopiedScript(key); setTimeout(() => setCopiedScript(null), 2000)
+  }
   
   const handleSaveScript = () => {
     localStorage.setItem(`whatsapp_script_${userEmail}`, customScript);
@@ -198,7 +208,7 @@ Balas *“YA”* untuk semakan 🆓
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
 
-  const smsPromoScript = `RM Public Islamic Bank: Kurangkan komitmen bulanan anda sekarang. Gabung pembiayaan dengan kadar tetap dari 3.88%. Semakan adalah PERCUMA, balas 'YA'.`;
+  const smsPromoScript = `0:00 Public Islamic Bank: Kurangkan komitmen bulanan anda hari ini! Kadar tetap dari 3.88%. Semakan PERCUMA. Balas ‘YA’ sekarang.`;
 
   const handleStatusChange = async (id, newStatus) => {
     queryClient.setQueryData(['staffData', userEmail], (oldData) => 
@@ -540,7 +550,10 @@ Balas *“YA”* untuk semakan 🆓
                       <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
                       <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
                     </div>
-                    <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="text-xs text-slate-700 font-bold underline text-center mt-1">Edit My Script</button>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => copyToClipboard(smsPromoScript, 'sms')} className="flex-1 text-xs text-slate-600 font-bold underline text-center">{copiedScript === 'sms' ? '✓ Copied!' : 'Copy Promo Script'}</button>
+                      <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="flex-1 text-xs text-slate-700 font-bold underline text-center">Edit My Script</button>
+                    </div>
                     {isEditingSmsScript && (
                       <div className="mt-2 flex flex-col gap-2">
                         <textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white" rows="6" value={customSmsScript} onChange={(e) => setCustomSmsScript(e.target.value)} placeholder="Type your custom SMS script here..."></textarea>
@@ -577,7 +590,10 @@ Balas *“YA”* untuk semakan 🆓
                     <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
                     <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
                   </div>
-                  <button onClick={() => setIsEditingScript(!isEditingScript)} className="text-xs text-green-700 font-bold underline text-center mt-1">Edit My Script</button>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={() => copyToClipboard(promoScript, 'wa')} className="flex-1 text-xs text-green-700 font-bold underline text-center">{copiedScript === 'wa' ? '✓ Copied!' : 'Copy Promo Script'}</button>
+                    <button onClick={() => setIsEditingScript(!isEditingScript)} className="flex-1 text-xs text-green-700 font-bold underline text-center">Edit My Script</button>
+                  </div>
                   {isEditingScript && (
                     <div className="mt-2 flex flex-col gap-2">
                       <textarea className="w-full border border-green-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white" rows="6" value={customScript} onChange={(e) => setCustomScript(e.target.value)} placeholder="Type your custom WhatsApp script here..."></textarea>
