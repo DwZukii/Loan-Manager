@@ -1,8 +1,8 @@
-# ⚡ Tele Manager (Loan-Manager)
+# ⚡ Tele Manager
 
 **Enterprise Lead & Communications Hub**
 
-Tele Manager is a custom full-stack CRM dashboard developed for Coshare Loan Consultancy. It is designed to streamline lead management, automate data sanitization, and enable one-click agent communication, solving critical operational bottlenecks for a sales team of 44+ agents.
+Tele Manager is a custom full-stack CRM dashboard developed for Coshare Loan Consultancy. It is designed to streamline lead management, automate data sanitization, and enable one-click agent communication, solving critical operational bottlenecks for a sales team of 100+ agents.
 
 ---
 
