@@ -12,8 +12,9 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const { data: leads = [], isLoading } = useStaffData(userEmail)
   const { confirm, ConfirmDialog } = useConfirm()
   
-  const [activeTab, setActiveTab] = useState('leads') 
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'leads')
   const [selectedLead, setSelectedLead] = useState(null)
+  const [pendingLeadId, setPendingLeadId] = useState(() => new URLSearchParams(window.location.search).get('leadId') || null)
   const [statusFilter, setStatusFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -86,30 +87,57 @@ export default function StaffDashboard({ userEmail, onLogout }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // Save selected lead ID to sessionStorage so mobile browsers can restore after reload
+  // URL State Sync & Back Button Support
   useEffect(() => {
-    if (selectedLead) {
-      sessionStorage.setItem(`selected_lead_${userEmail}`, String(selectedLead.id));
-    } else {
-      sessionStorage.removeItem(`selected_lead_${userEmail}`);
-    }
-  }, [selectedLead, userEmail]);
-
-  // On mount: restore selected lead once data is available
-  useEffect(() => {
-    if (leads.length === 0) return;
-    const savedId = sessionStorage.getItem(`selected_lead_${userEmail}`);
-    if (savedId && !selectedLead) {
-      const match = leads.find(l => String(l.id) === savedId);
-      if (match) {
-        setSelectedLead(match);
-        setCurrentNote(match.agent_notes || '');
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') || 'leads';
+      const leadId = params.get('leadId');
+      
+      setActiveTab(tab);
+      if (leadId) {
+        setPendingLeadId(leadId); // Will be picked up by the restore effect
       } else {
-        sessionStorage.removeItem(`selected_lead_${userEmail}`);
+        setPendingLeadId(null);
+        setSelectedLead(null);
       }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Push state to URL when user navigates
+  const navigateTo = (tab, leadId = null) => {
+    setActiveTab(tab);
+    if (leadId) {
+      setPendingLeadId(String(leadId));
+    } else {
+      setSelectedLead(null);
+      setPendingLeadId(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, userEmail]);
+
+    const params = new URLSearchParams();
+    if (tab && tab !== 'leads') params.set('tab', tab);
+    if (leadId) params.set('leadId', String(leadId));
+    
+    const qs = params.toString();
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    
+    if (window.location.search !== `?${qs}` && window.location.search !== qs) {
+      window.history.pushState(null, '', newUrl);
+    }
+  };
+
+  // Restore selected lead from pendingLeadId once data is available
+  useEffect(() => {
+    if (leads.length === 0 || !pendingLeadId) return;
+    const match = leads.find(l => String(l.id) === pendingLeadId);
+    if (match && (!selectedLead || String(selectedLead.id) !== pendingLeadId)) {
+      setSelectedLead(match);
+      setCurrentNote(match.agent_notes || '');
+    }
+  }, [leads, pendingLeadId, selectedLead]);
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackMessage.trim()) return
@@ -381,9 +409,9 @@ Balas *“YA”* untuk semakan 🆓
             <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest hidden lg:inline-block animate-nav-entry">STAFF</span>
           </h1>
           <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl animate-nav-entry" style={{background: 'rgba(255,255,255,0.08)'}}>
-            <button onClick={() => {setActiveTab('leads'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>My Leads</button>
-            <button onClick={() => {setActiveTab('manual'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Manual Entry</button>
-            <button onClick={() => {setActiveTab('tutorial'); setSelectedLead(null)}} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
+            <button onClick={() => navigateTo('leads')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Leads</button>
+            <button onClick={() => navigateTo('manual')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Manual Entry</button>
+            <button onClick={() => navigateTo('tutorial')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -413,29 +441,24 @@ Balas *“YA”* untuk semakan 🆓
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-3">
-            <div className="mb-6">
+          <div className="flex-1 overflow-y-auto py-8 flex flex-col">
+            <div className="mb-6 px-6">
               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Connected as</p>
               <p className="text-base font-bold text-white mb-1 truncate">{userEmail}</p>
               <span className="inline-block bg-indigo-500/30 text-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border border-indigo-400/30">STAFF</span>
             </div>
 
-            <button onClick={() => { setActiveTab('leads'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <ClipboardList className="w-6 h-6" />
-              <p className="font-black text-xs uppercase tracking-wider">My Leads</p>
+            <button onClick={() => { navigateTo('leads'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all ${activeTab === 'leads' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
+              Leads Data
+            </button>
+            <button onClick={() => { navigateTo('manual'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'manual' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
+              Manual Entry
+            </button>
+            <button onClick={() => { navigateTo('tutorial'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'tutorial' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
+              Tutorial
             </button>
 
-            <button onClick={() => { setActiveTab('manual'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <PenLine className="w-6 h-6" />
-              <p className="font-black text-xs uppercase tracking-wider">Manual Entry</p>
-            </button>
-
-            <button onClick={() => { setActiveTab('tutorial'); setSelectedLead(null); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
-              <BookOpen className="w-6 h-6" />
-              <p className="font-black text-xs uppercase tracking-wider">Tutorial</p>
-            </button>
-
-            <div className="mt-auto pt-6 border-t border-white/10">
+            <div className="mt-auto pt-6 border-t border-white/10 px-6">
               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
                 <LogOut className="w-4 h-4" /> Sign Out
               </button>
@@ -522,7 +545,7 @@ Balas *“YA”* untuk semakan 🆓
         {renderMobileMenu()}
         <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
           <div className="max-w-2xl mx-auto">
-            <button onClick={() => { sessionStorage.removeItem(`selected_lead_${userEmail}`); setSelectedLead(null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
+            <button onClick={() => { navigateTo(activeTab, null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
             <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
               <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{currentLead.phone_number}</h2>
@@ -730,7 +753,7 @@ Balas *“YA”* untuk semakan 🆓
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                     <a href={getCallUrl(lead.phone_number)} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
-                    <button onClick={() => { setSelectedLead(lead); setCurrentNote(lead.agent_notes || ''); }} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
+                    <button onClick={() => navigateTo('leads', lead.id)} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
                   </div>
                 </div>
               ))}
