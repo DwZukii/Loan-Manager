@@ -26,6 +26,8 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const [expandedGroup, setExpandedGroup] = useState(null)
 
   const [validNumbers, setValidNumbers] = useState([])
+  const [previewItems, setPreviewItems] = useState([]) // {phone, age?}
+  const [previewPage, setPreviewPage] = useState(0)
   const [selectedFiles, setSelectedFiles] = useState([])
   const [uploadSet, setUploadSet] = useState('Set A') 
   const [uploadStatus, setUploadStatus] = useState('')
@@ -202,9 +204,8 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         row.forEach(cell => {
           if (!cell) return
           const cellStr = String(cell)
-          const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
-          const parts = normalized.split(',')
-          parts.forEach(part => {
+          const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
+          matches.forEach(part => {
             let clean = part.replace(/\D/g, '')
             if (!clean) return
             if (clean.startsWith('0060')) clean = clean.substring(2)
@@ -255,9 +256,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       row.forEach(cell => {
         if (!cell) return
         const cellStr = String(cell)
-        const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
-        normalized.split(',').forEach(part => {
-          const result = classifyNumber(part.trim())
+        const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
+        matches.forEach(part => {
+          const result = classifyNumber(part)
           if (!result) return
           if (result.type === 'ic')        ics.push(result.value)
           else if (result.type === 'phone')     phones.push(result.value)
@@ -290,7 +291,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       const age = extractAge(icStr)
       if (age >= minA && age <= maxA) {
         rowsMatched++
-        extracted.push(phoneStr)
+        extracted.push({ phone: phoneStr, age })
       }
 
       if ((r + 1) % YIELD_EVERY === 0) {
@@ -362,20 +363,37 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
       setFilesNeedAnalysis(false);
 
-      const uniqueNumbers = [...new Set(allExtracted)];
+      // Deduplicate — for IC mode items are objects {phone, age}, for all mode they're strings
+      const isAgeMode = extractMode !== 'all';
+      let uniqueItems;
+      if (isAgeMode) {
+        const seen = new Set();
+        uniqueItems = allExtracted.filter(item => {
+          if (seen.has(item.phone)) return false;
+          seen.add(item.phone);
+          return true;
+        });
+      } else {
+        uniqueItems = [...new Set(allExtracted)];
+      }
+
+      const uniqueCount = uniqueItems.length;
       const fileLabel = filesToScan.length > 1 ? ` across ${filesToScan.length} files` : '';
 
-      if (uniqueNumbers.length > 10000) {
+      if (uniqueCount > 10000) {
         setValidNumbers([]);
-        setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueNumbers.length} numbers${fileLabel}. Maximum allowed is 10,000 per upload to ensure stability.`);
-      } else if (extractMode === 'all') {
-        setValidNumbers(uniqueNumbers);
-        if (uniqueNumbers.length > 0) { setUploadStatus(`✅ Found ${uniqueNumbers.length} valid numbers${fileLabel}.`); setTimeout(() => setUploadStatus(''), 3000); }
+        setPreviewItems([]);
+        setUploadStatus(`🛑 Limit Exceeded: Found ${uniqueCount} numbers${fileLabel}. Maximum allowed is 10,000 per upload to ensure stability.`);
+      } else if (!isAgeMode) {
+        setValidNumbers(uniqueItems);
+        setPreviewItems(uniqueItems.map(phone => ({ phone })));
+        if (uniqueCount > 0) { setUploadStatus(`✅ Found ${uniqueCount} valid numbers${fileLabel}.`); setTimeout(() => setUploadStatus(''), 3000); }
         else setUploadStatus(`No valid mobile numbers found${fileLabel}.`);
       } else {
-        setValidNumbers(uniqueNumbers);
-        if (uniqueNumbers.length > 0) {
-          setUploadStatus(`✅ ${totalRowsScanned} rows scanned${fileLabel} → ${totalRowsWithIC} had a valid IC → ${totalRowsMatched} matched age ${minAge}–${maxAge} → ${uniqueNumbers.length} unique numbers ready.`); setTimeout(() => setUploadStatus(''), 4000);
+        setValidNumbers(uniqueItems.map(item => item.phone));
+        setPreviewItems(uniqueItems);
+        if (uniqueCount > 0) {
+          setUploadStatus(`✅ ${totalRowsScanned} rows scanned${fileLabel} → ${totalRowsWithIC} had a valid IC → ${totalRowsMatched} matched age ${minAge}–${maxAge} → ${uniqueCount} unique numbers ready.`); setTimeout(() => setUploadStatus(''), 4000);
         } else {
           setUploadStatus(`No numbers found. Scanned ${totalRowsScanned} rows${fileLabel}, ${totalRowsWithIC} had ICs, but none matched age ${minAge}–${maxAge}.`);
         }
@@ -402,6 +420,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setSelectedFiles(merged);
     setFilesNeedAnalysis(true);
     setValidNumbers([]);
+    setPreviewItems([]);
     setUploadStatus(`Ready to analyze ${merged.length} file(s).`);
   }
 
@@ -412,6 +431,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     setSelectedFiles(updated);
     setFilesNeedAnalysis(updated.length > 0);
     setValidNumbers([]);
+    setPreviewItems([]);
     if (updated.length === 0) setUploadStatus('');
     else setUploadStatus(`Ready to analyze ${updated.length} file(s).`);
   }
@@ -446,6 +466,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     if (trulyFreshNumbers.length === 0) {
       setUploadStatus(`Upload cancelled: All ${validNumbers.length} leads are already in the database!`);
       setValidNumbers([]);
+      setPreviewItems([]);
       setSelectedFiles([]);
       document.getElementById('file-upload-input').value = '';
       setIsUploadingToDB(false);
@@ -477,7 +498,8 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
     if (!insertError) { 
         setUploadStatus(`✅ Done! Added ${trulyFreshNumbers.length} numbers to ${uploadSet} 🛡️ (Intercepted ${rejectedCount} duplicates)`); setTimeout(() => setUploadStatus(''), 3000);
-        setValidNumbers([]); 
+        setValidNumbers([]);
+        setPreviewItems([]);
         setSelectedFiles([]);
         document.getElementById('file-upload-input').value = ''; 
         queryClient.invalidateQueries({ queryKey: ['managerData', userEmail] }); 
@@ -750,9 +772,59 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   </button>
                 </div>
               ) : validNumbers.length > 0 ? (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
-                  <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm space-y-3">
+                  <p className="text-sm font-bold text-indigo-800 text-center">{uploadStatus}</p>
+                  {/* ── NUMBER PREVIEW ── */}
+                  {(() => {
+                    const PAGE_SIZE = 18;
+                    const totalPages = Math.ceil(previewItems.length / PAGE_SIZE);
+                    const pageItems = previewItems.slice(previewPage * PAGE_SIZE, (previewPage + 1) * PAGE_SIZE);
+                    return (
+                      <div className="bg-white border border-indigo-200 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-indigo-100/60 border-b border-indigo-200">
+                          <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">Preview — {validNumbers.length} numbers ready</span>
+                          {previewItems.some(i => i.age != null) && <span className="text-xs font-bold text-indigo-500">age shown</span>}
+                        </div>
+                        <div className="p-2">
+                          <div className="flex flex-wrap gap-1.5 min-h-[60px]">
+                            {pageItems.map((item, idx) => {
+                              const realIdx = previewPage * PAGE_SIZE + idx;
+                              return (
+                                <span key={realIdx} className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-lg pl-2 pr-1 py-0.5 text-xs font-mono text-indigo-900">
+                                  {item.phone}
+                                  {item.age != null && <span className="bg-indigo-200 text-indigo-800 font-black rounded px-1">{item.age}y</span>}
+                                  <button
+                                    onClick={() => {
+                                      const newItems = previewItems.filter((_, i) => i !== realIdx);
+                                      setPreviewItems(newItems);
+                                      setValidNumbers(newItems.map(i => i.phone));
+                                      const newTotalPages = Math.ceil(newItems.length / PAGE_SIZE);
+                                      if (previewPage >= newTotalPages) setPreviewPage(Math.max(0, newTotalPages - 1));
+                                    }}
+                                    className="ml-0.5 w-3.5 h-3.5 rounded-full bg-indigo-200 hover:bg-red-400 hover:text-white text-indigo-500 flex items-center justify-center transition-colors text-[10px] font-black flex-shrink-0"
+                                    title="Remove this number"
+                                  >×</button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-indigo-100">
+                              <button onClick={() => setPreviewPage(p => Math.max(0, p - 1))} disabled={previewPage === 0} className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-30 transition-colors">← Prev</button>
+                              <span className="text-xs font-bold text-indigo-500">Page {previewPage + 1} of {totalPages}</span>
+                              <button onClick={() => setPreviewPage(p => Math.min(totalPages - 1, p + 1))} disabled={previewPage === totalPages - 1} className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-30 transition-colors">Next →</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Personal ${uploadSet}`}</button>
+                  <button
+                    onClick={() => { setValidNumbers([]); setPreviewItems([]); setPreviewPage(0); setSelectedFiles([]); setUploadStatus(''); document.getElementById('file-upload-input').value = ''; }}
+                    disabled={isUploadingToDB}
+                    className="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3 rounded-xl hover:bg-red-100 transition-all disabled:opacity-50"
+                  >Discard All</button>
                 </div>
               ) : (
                 uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">{uploadStatus}</p>
