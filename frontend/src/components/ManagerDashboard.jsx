@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatPhone } from '../utils'
 import { createPortal } from 'react-dom'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
@@ -653,10 +654,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-indigo-200 relative overflow-hidden flex flex-col h-full">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50 rounded-full -mr-24 -mt-24 opacity-50 pointer-events-none"></div>
+        <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
           <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
-            <span className="bg-indigo-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-indigo-300 flex-shrink-0">1</span> 
+            <span className="bg-indigo-100 text-indigo-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> 
             Clean & Add
           </h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
@@ -833,34 +833,34 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-emerald-200 relative flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-emerald-900 mb-6 flex items-center gap-3 relative z-10">
-            <span className="bg-emerald-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg shadow-sm shadow-emerald-300 flex-shrink-0">2</span> 
+        <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 relative flex flex-col h-full">
+          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
+            <span className="bg-indigo-100 text-indigo-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> 
             Distribute to Team
           </h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
-            <div className="bg-white rounded-xl border border-emerald-200 flex flex-col text-sm text-emerald-900 shadow-sm overflow-hidden">
-              <div className="flex justify-between items-center p-3.5 border-b border-emerald-100 font-bold bg-emerald-50/50"><span>Set A Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set A']||0}</b></div>
-              <div className="flex justify-between items-center p-3.5 border-b border-emerald-100 font-bold bg-emerald-50/50"><span>Set B Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
-              <div className="flex justify-between items-center p-3.5 font-bold bg-emerald-50/50"><span>Set C Pool:</span><b className="text-emerald-800 bg-white shadow-sm border border-emerald-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
+            <div className="bg-white rounded-xl border border-indigo-200 flex flex-col text-sm text-indigo-900 shadow-sm overflow-hidden">
+              <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set A Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set A']||0}</b></div>
+              <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set B Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
+              <div className="flex justify-between items-center p-3.5 font-bold bg-indigo-50/50"><span>Set C Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Pull From</label>
-                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-black text-emerald-900 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow">
+                <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Pull From</label>
+                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
                   <option value="Set A">Set A</option>
                   <option value="Set B">Set B</option>
                   <option value="Set C">Set C</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Amount</label>
+                <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Amount</label>
                 <input 
                   type="number" 
                   list="assign-amounts" 
                   value={assignAmount} 
                   onChange={(e) => setAssignAmount(e.target.value)} 
-                  className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-black text-emerald-900 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow"
+                  className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                   placeholder="Type..."
                   min="1"
                 />
@@ -873,7 +873,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               </div>
             </div>
             <div className="relative">
-              <label className="block text-xs font-bold text-emerald-900 mb-2 uppercase tracking-wider">Select Staff Member</label>
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Select Staff Member</label>
               <div className="relative">
                 <input
                   type="text"
@@ -882,7 +882,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   onChange={e => { setAssignEmailQuery(e.target.value); setAssignEmail(''); setShowStaffDropdown(true); }}
                   onFocus={() => setShowStaffDropdown(true)}
                   onBlur={() => setTimeout(() => setShowStaffDropdown(false), 150)}
-                  className="w-full p-3.5 border border-emerald-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow pr-8"
+                  className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow pr-8"
                 />
                 {assignEmailQuery && (
                   <button
@@ -895,17 +895,17 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 const filtered = myTeamEmails.filter(email => email.toLowerCase().includes(assignEmailQuery.toLowerCase()));
                 if (filtered.length === 0) return null;
                 return (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-emerald-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-indigo-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
                     {filtered.map(email => (
                       <button
                         key={email}
                         onMouseDown={e => { e.preventDefault(); setAssignEmail(email); setAssignEmailQuery(email); setShowStaffDropdown(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0 ${
-                          assignEmail === email ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-gray-700'
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 ${
+                          assignEmail === email ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700'
                         }`}
                       >
                         <span className="inline-flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">{email.charAt(0)}</span>
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">{email.charAt(0)}</span>
                           {email}
                         </span>
                       </button>
@@ -915,11 +915,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               })()}
             </div>
             <div className="mt-auto pt-2 space-y-3">
-              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Numbers'}</button>
+              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Numbers'}</button>
               {unassignedCounts[assignSet] > 0 && (
                 <button onClick={handleClearPool} disabled={isClearing} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">{isClearing ? 'Clearing...' : 'Clear Selected Set'}</button>
               )}
-              {assignStatus && <p className="text-sm font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center shadow-sm">{assignStatus}</p>}
+              {assignStatus && <p className="text-sm font-bold text-indigo-700 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center shadow-sm">{assignStatus}</p>}
             </div>
           </div>
         </div>
@@ -1002,7 +1002,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                             <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
                               <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
                               <div className="flex items-start justify-between pr-20 mb-2">
-                                <div className="flex items-center gap-2">{lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}<span className="font-black text-gray-900">{lead.phone_number}</span><span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span></div>
+                                <div className="flex items-center gap-2">{lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}<span className="font-black text-gray-900">{formatPhone(lead.phone_number)}</span><span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span></div>
                                 <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
                               </div>
                               {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
@@ -1054,7 +1054,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       {/* Page Header */}
-      <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
+      <div style={{background: '#1e1b4b'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
         <div className="relative z-10">
           <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
@@ -1147,10 +1147,10 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         {agentStats.length === 0 ? (
           <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No leads assigned to your team yet.</p></div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr style={{background: 'linear-gradient(135deg, #1e1b4b, #312e81)'}}>
+              <thead className="sticky top-0 z-10">
+                <tr style={{background: '#1e1b4b'}}>
                   <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
                   <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Assigned</th>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest">Pending</th>
@@ -1195,7 +1195,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Provision Staff Account */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-          <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="px-8 py-6 flex items-center gap-4">
+          <div style={{background: '#1e1b4b'}} className="px-8 py-6 flex items-center gap-4">
             <span className="bg-white/15 rounded-xl p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
               <h3 className="text-xl font-extrabold text-white">Provision Staff Account</h3>
@@ -1227,7 +1227,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
         {/* My Team */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="px-8 py-5 flex items-center justify-between">
+          <div style={{background: '#1e1b4b'}} className="px-8 py-5 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-extrabold text-white flex items-center gap-2"><Users className="w-5 h-5" /> My Team</h3>
               <p className="text-indigo-300 text-xs font-medium mt-0.5">{myTeamList.length} active staff member{myTeamList.length !== 1 ? 's' : ''} under your command</p>
@@ -1503,7 +1503,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       
 
       <nav 
-        style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+        style={{background: '#1e1b4b'}} 
         className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">

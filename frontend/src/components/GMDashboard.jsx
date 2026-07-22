@@ -61,7 +61,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
     const totalSms = agentStats.reduce((s, a) => s + a.thinking, 0);
     return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #1e3a5f 100%)'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
+      <div style={{background: '#1e1b4b'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
         <div className="relative z-10">
           <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
@@ -180,7 +180,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr style={{background: 'linear-gradient(135deg, #1e1b4b, #312e81)'}}>
+                  <tr style={{background: '#1e1b4b'}}>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Manager</th>
                     <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-center">Assigned</th>
@@ -297,7 +297,7 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
       <nav 
-        style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+        style={{background: '#1e1b4b'}} 
         className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">

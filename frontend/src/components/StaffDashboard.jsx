@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatPhone } from '../utils'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
 import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare, Search } from 'lucide-react'
@@ -394,7 +395,7 @@ Balas *“YA”* untuk semakan 🆓
 
   const renderNav = () => (
     <nav 
-      style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%)'}} 
+      style={{background: '#1e1b4b'}} 
       className={`sticky top-0 z-40 shadow-2xl transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
     >
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -548,7 +549,7 @@ Balas *“YA”* untuk semakan 🆓
             <button onClick={() => { navigateTo(activeTab, null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
             
             <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-              <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{currentLead.phone_number}</h2>
+              <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{formatPhone(currentLead.phone_number)}</h2>
               <div className="flex items-center gap-2 mb-6">
                 <span className="text-sm font-bold text-gray-500">Status:</span>
                 <select value={currentLead.status} onChange={(e) => handleStatusChange(currentLead.id, e.target.value)} className="bg-gray-100 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 font-bold shadow-sm cursor-pointer outline-none">
@@ -739,7 +740,7 @@ Balas *“YA”* untuk semakan 🆓
                   <div className="flex items-center gap-3">
                     <span className="text-gray-400 font-black w-6 text-right text-sm">{(currentPage - 1) * leadsPerPage + index + 1}.</span>
                     <div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-1 tracking-tight">{lead.phone_number}</h3>
+                      <h3 className="text-xl font-bold text-gray-800 mb-1 tracking-tight">{formatPhone(lead.phone_number)}</h3>
                       <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold shadow-sm cursor-pointer outline-none">
                         <option value="Pending">Pending</option>
                         <option value="Called">Called</option>
