@@ -17,17 +17,23 @@ This system was built to solve real-world SME constraints:
 
 ## ✨ Key Features
 
-- 🧹 **Automated Data Scrubbing:** Sanitizes malformed phone numbers automatically (stripping spaces, dashes, and country codes) to ensure 100% valid lead routing.
-- 🔗 **Quick-Action Routing (Deep Linking):** One-click redirection using native OS URIs to seamlessly launch native WhatsApp and SMS applications with pre-filled, dynamic promotional scripts.
-- 📊 **Cross-Platform Lead Attribution:** Matches sanitized numbers against legacy SQL databases to accurately track and attribute converted leads for commission payouts.
-- 🔒 **Agent-Isolated Sessions:** Resolves Android Dual Messenger/WhatsApp Business routing quirks to ensure links fire to the correct hardware device.
+*   **Role-Based Access Control:** Secure, customized workspaces and routing for `super_admin`, `general_manager`, `manager`, and `agent` (staff) roles.
+*   **Smart Lead Extraction & Sanitization:** Upload `.xlsx` or `.csv` files to automatically scrub, format, and deduplicate Malaysian phone numbers. Includes an advanced extraction mode that filters leads by age range through Malaysian IC parsing.
+*   **Real-Time Analytics:** Interactive bar and pie charts visualizing pipeline health, lead statuses, and team volume metrics using Recharts.
+*   **One-Click Communications:** Native OS deep-linking for quick WhatsApp and SMS outreach. Agents can toggle between Personal and Business WhatsApp routing and utilize customizable, locally-saved promo scripts.
+*   **Live Data Synchronization:** Dashboards automatically update in real-time across devices using Supabase Postgres channels and React Query.
+*   **Customer Pipeline Management:** Track returning customers, manage document uploads (like payslips), and monitor "stuck" cases that have been inactive.
+*   **Over-The-Air Updates:** Built-in version checker that polls for updates and cleanly prompts users to refresh when a new version of the app is deployed.
+*   **Feedback Hub:** Built-in modal for staff to submit bug reports and feature suggestions directly to admins.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React, JavaScript, Tailwind CSS
+- **Frontend:** React (Vite), JavaScript, Tailwind CSS
 - **Backend & Database:** Node.js, Supabase (PostgreSQL)
 - **Deployment:** Vercel (Frontend), GitHub Actions
+- **State Management & Fetching:** `@tanstack/react-query`
+- **UI Components:** `lucide-react` (icons), `recharts` (charts), `sonner` (toast notifications)
 
 ---
