@@ -24,6 +24,7 @@ function StatusBadge({ status }) {
 
 export default function AllCasesTable({ customers, onStatusChange, onDelete, agentsList = [], userRole }) {
   const [agentFilter,   setAgentFilter]   = useState('')
+  const [selectedAgent, setSelectedAgent] = useState('All')
   const [statusFilter,  setStatusFilter]  = useState('All')
   const [currentPage,   setCurrentPage]   = useState(1)
   const [selectedCustomerId, setSelectedCustomerId] = useState(null)
@@ -32,15 +33,29 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
     ? customers.find(c => c.id === selectedCustomerId)
     : null
 
+  // Extract unique list of agent emails
+  const uniqueAgents = useMemo(() => {
+    const set = new Set()
+    customers.forEach(c => {
+      if (c.agentEmail) set.add(c.agentEmail)
+    })
+    return Array.from(set).sort()
+  }, [customers])
+
   const filtered = useMemo(() => {
     return customers.filter(c => {
-      const matchAgent  = (c.agentEmail  || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
-                          (c.fullName    || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
-                          (c.phoneNumber || '').toLowerCase().includes(agentFilter.toLowerCase())
+      const matchSearchText = !agentFilter.trim() || 
+        (c.agentEmail  || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
+        (c.fullName    || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
+        (c.phoneNumber || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
+        (c.icNumber    || '').toLowerCase().includes(agentFilter.toLowerCase())
+      
+      const matchAgentDropdown = selectedAgent === 'All' || c.agentEmail === selectedAgent
       const matchStatus = statusFilter === 'All' || c.status === statusFilter
-      return matchAgent && matchStatus
+
+      return matchSearchText && matchAgentDropdown && matchStatus
     })
-  }, [customers, agentFilter, statusFilter])
+  }, [customers, agentFilter, selectedAgent, statusFilter])
 
   const ITEMS_PER_PAGE = 10
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1
@@ -67,15 +82,32 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <input
           type="text"
-          placeholder="Filter by name or agent..."
+          placeholder="Search by name, IC, or phone..."
           value={agentFilter}
-          onChange={e => setAgentFilter(e.target.value)}
+          onChange={e => { setAgentFilter(e.target.value); setCurrentPage(1) }}
           className="flex-1 p-3 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
         />
+
+        {/* Agent Filter Dropdown */}
+        <div className="relative">
+          <select
+            value={selectedAgent}
+            onChange={e => { setSelectedAgent(e.target.value); setCurrentPage(1) }}
+            className="appearance-none w-full sm:w-56 p-3 pr-9 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+          >
+            <option value="All">All Agents ({uniqueAgents.length})</option>
+            {uniqueAgents.map(email => (
+              <option key={email} value={email}>{email}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+
+        {/* Status Filter Dropdown */}
         <div className="relative">
           <select
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
+            onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1) }}
             className="appearance-none w-full sm:w-44 p-3 pr-9 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
           >
             {STATUSES.map(s => (
