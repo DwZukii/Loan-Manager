@@ -1,17 +1,41 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense, useMemo } from 'react'
 import { formatPhone } from '../utils'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
-import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare, Search } from 'lucide-react'
+import NavSlider from './NavSlider'
+import LazySpinner from './LazySpinner'
+import { Bug, ClipboardList, PenLine, BookOpen, LogOut, Menu, X, Lightbulb, MessageSquare, Search, Bell, Cake, CheckCircle2, Inbox } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useStaffData } from '../hooks/useStaffData'
+import { usePipelineData } from '../hooks/usePipelineData'
 import { useConfirm } from '../hooks/useConfirm'
+
+const CustomerPipelinePage = lazy(() => import('./pipeline/CustomerPipelinePage'))
 
 export default function StaffDashboard({ userEmail, onLogout }) {
   const queryClient = useQueryClient()
-  const { data: leads = [], isLoading } = useStaffData(userEmail)
+  const { data: staffData = { leads: [], staffNotifications: [], reminderNotifications: [] }, isLoading } = useStaffData(userEmail)
+  const { data: pipelineCustomers = [] } = usePipelineData(userEmail)
   const { confirm, ConfirmDialog } = useConfirm()
+
+  const leads = useMemo(() => staffData.leads ?? [], [staffData.leads])
+  const staffNotifications = staffData.staffNotifications ?? []
+  const reminderNotifications = staffData.reminderNotifications ?? []
+
+  // Birthday notifications — customers whose birthday is TODAY
+  const birthdayNotifications = useMemo(() => {
+    const today = new Date()
+    return pipelineCustomers.filter(c => {
+      if (!c.dateOfBirth) return false
+      const dob = new Date(c.dateOfBirth + 'T00:00:00')
+      return dob.getDate() === today.getDate() && dob.getMonth() === today.getMonth()
+    })
+  }, [pipelineCustomers])
+
+  const [dismissedBirthdays, setDismissedBirthdays] = useState(() => new Set())
+
+  const visibleBirthdays = birthdayNotifications.filter(c => !dismissedBirthdays.has(c.id))
   
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'leads')
   const [selectedLead, setSelectedLead] = useState(null)
@@ -27,10 +51,7 @@ export default function StaffDashboard({ userEmail, onLogout }) {
   const [selectedFile, setSelectedFile] = useState(null) 
   const [showWaMenu, setShowWaMenu] = useState(false) 
 
-  const [manualPhone, setManualPhone] = useState('')
-  const [manualNote, setManualNote] = useState('')
-  const [manualFile, setManualFile] = useState(null)
-  const [isManualSaving, setIsManualSaving] = useState(false)
+
 
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
   const [feedbackType, setFeedbackType] = useState('Bug')
@@ -172,14 +193,16 @@ export default function StaffDashboard({ userEmail, onLogout }) {
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFeedbackModalOpen(false)}></div>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
             <div className="border-b border-gray-100 p-6 bg-slate-50">
               <h3 className="text-xl font-extrabold text-slate-800">Submit Feedback</h3>
               <p className="text-sm text-slate-500 font-medium mt-1">Found a bug or have a suggestion? Let us know.</p>
             </div>
             {feedbackSuccess ? (
               <div className="p-8 text-center bg-white flex flex-col items-center justify-center space-y-3">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mb-2">✅</div>
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
                 <h4 className="text-xl font-bold text-slate-800">Received!</h4>
                 <p className="text-slate-500 font-medium">Thanks for helping us improve.</p>
               </div>
@@ -188,15 +211,15 @@ export default function StaffDashboard({ userEmail, onLogout }) {
                 <div className="space-y-3">
                   <label className="block text-sm font-bold text-slate-700">Issue Type</label>
                   <div className="grid grid-cols-3 gap-3">
-                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <Bug className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Bug</span>
                     </button>
-                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <Lightbulb className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Idea</span>
                     </button>
-                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <MessageSquare className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Other</span>
                     </button>
@@ -204,11 +227,11 @@ export default function StaffDashboard({ userEmail, onLogout }) {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
-                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Cancel</button>
-                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded hover:bg-slate-200 transition">Cancel</button>
+                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
                 </div>
               </div>
             )}
@@ -237,12 +260,15 @@ Balas *“YA”* untuk semakan 🆓
 
 *Nota : TENTERA / BEKERJA SENDIRI TIDAK LAYAK UNTUK PAKEJ INI ⛔️*`;
 
-  const smsPromoScript = `0:00 Public Islamic Bank: Kurangkan komitmen bulanan anda hari ini! Kadar tetap dari 3.88%. Semakan PERCUMA. Balas ‘YA’ sekarang.`;
+  const smsPromoScript = `RM0 :Public Islamic Bank
+Kurangkan komitmen bulanan anda! Kadar tetap serendah 3.88%. Semakan PERCUMA. Blacklist,AKPK boleh mohon 
+Balas YA jika berminat`;
 
   const handleStatusChange = async (id, newStatus) => {
-    queryClient.setQueryData(['staffData', userEmail], (oldData) => 
-      oldData ? oldData.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead) : []
-    )
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+      if (!oldData) return { leads: [], staffNotifications: [] }
+      return { ...oldData, leads: oldData.leads.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead) }
+    })
     await supabase.from('leads').update({ status: newStatus, admin_reviewed: false, manager_reviewed: false }).eq('id', id)
   }
 
@@ -250,9 +276,10 @@ Balas *“YA”* untuk semakan 🆓
     setIsSavingNote(true)
     const { error } = await supabase.from('leads').update({ agent_notes: currentNote, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     if (!error) { 
-      queryClient.setQueryData(['staffData', userEmail], (oldData) => 
-        oldData ? oldData.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead) : []
-      ); 
+      queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+        if (!oldData) return { leads: [], staffNotifications: [] }
+        return { ...oldData, leads: oldData.leads.map(lead => lead.id === selectedLead.id ? { ...lead, agent_notes: currentNote } : lead) }
+      })
       setSelectedLead({...selectedLead, agent_notes: currentNote}) 
     }
     setIsSavingNote(false)
@@ -285,9 +312,10 @@ Balas *“YA”* untuk semakan 🆓
     const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName)
     await supabase.from('leads').update({ document_url: publicUrlData.publicUrl, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     
-    queryClient.setQueryData(['staffData', userEmail], (old) => 
-      old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead) : []
-    ); 
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+      if (!oldData) return { leads: [], staffNotifications: [] }
+      return { ...oldData, leads: oldData.leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: publicUrlData.publicUrl } : lead) }
+    }) 
     setSelectedLead({...selectedLead, document_url: publicUrlData.publicUrl})
     setSelectedFile(null); 
     setUploadingFile(false);
@@ -301,66 +329,21 @@ Balas *“YA”* untuk semakan 🆓
     await supabase.storage.from('documents').remove([fileName])
     await supabase.from('leads').update({ document_url: null, admin_reviewed: false, manager_reviewed: false }).eq('id', selectedLead.id)
     
-    queryClient.setQueryData(['staffData', userEmail], (old) => 
-      old ? old.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead) : []
-    ); 
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+      if (!oldData) return { leads: [], staffNotifications: [] }
+      return { ...oldData, leads: oldData.leads.map(lead => lead.id === selectedLead.id ? { ...lead, document_url: null } : lead) }
+    }) 
     setSelectedLead({...selectedLead, document_url: null}); 
     setUploadingFile(false)
   }
 
-  const handleManualSubmit = async () => {
-    let cleanPhone = manualPhone ? manualPhone.replace(/\D/g, '') : '';
-    if (cleanPhone.startsWith('1')) cleanPhone = '60' + cleanPhone; 
-    else if (cleanPhone.startsWith('0')) cleanPhone = '6' + cleanPhone;
 
-    if (cleanPhone.length < 10) return toast.error("Valid phone number required.");
-    setIsManualSaving(true);
-    let finalUrl = null;
-    
-    if (manualFile) {
-      const fileExt = manualFile.name.split('.').pop(); 
-      const fileName = `manual-${Math.random()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, manualFile);
-      if (uploadError) { 
-        toast.error("Upload failed: " + uploadError.message);
-        setIsManualSaving(false); 
-        return; 
-      }
-      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
-      finalUrl = urlData.publicUrl;
-    }
-    
-    const { error } = await supabase.from('leads').insert([{ 
-      phone_number: cleanPhone, 
-      assigned_to: userEmail, 
-      status: 'Accepted', 
-      agent_notes: manualNote, 
-      document_url: finalUrl, 
-      admin_reviewed: false, 
-      manager_reviewed: false,
-      lead_set: 'External / Manual' 
-    }]);
-    
-    if (error) {
-      toast.error("Error: " + error.message);
-    } else { 
-      toast.success("Submitted successfully!"); 
-      setManualPhone(''); 
-      setManualNote(''); 
-      setManualFile(null); 
-      document.getElementById('manual-file-input').value = ''; 
-      queryClient.invalidateQueries({ queryKey: ['staffData', userEmail] }); 
-    }
-    setIsManualSaving(false);
-  }
 
   const totalLeads = leads.length; 
   const pendingCount = leads.filter(l => l.status === 'Pending').length; 
   const calledCount = leads.filter(l => l.status === 'Called').length; 
   const whatsappCount = leads.filter(l => l.status === 'WhatsApp Sent').length; 
-  const acceptedCount = leads.filter(l => l.status === 'Accepted').length; 
   const thinkingCount = leads.filter(l => l.status === "SMS Sent").length; 
-  const rejectedCount = leads.filter(l => l.status === 'Rejected').length;
   const invalidCount = leads.filter(l => l.status === 'Invalid Number').length;
   const callsMade = totalLeads - pendingCount - invalidCount; 
   const progressPercent = Math.round((callsMade / (totalLeads - invalidCount)) * 100) || 0;
@@ -378,6 +361,32 @@ Balas *“YA”* untuk semakan 🆓
     return waMeUrl;
   };
 
+  // ── Dismiss handlers ─────────────────────────────────────────────────────────
+  const handleDismissLeadNotif = async (notifId, ids) => {
+    // Optimistic update — remove from UI immediately
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+      if (!oldData) return oldData
+      return { ...oldData, staffNotifications: oldData.staffNotifications.filter(n => n.id !== notifId) }
+    })
+    // Mark as reviewed in DB
+    await supabase.from('leads').update({ staff_reviewed: true }).in('id', ids)
+  }
+
+  const handleDismissBirthday = (customerId) => {
+    setDismissedBirthdays(prev => new Set([...prev, customerId]))
+  }
+
+  const handleDismissReminder = async (reminderId) => {
+    // Optimistic remove from UI
+    queryClient.setQueryData(['staffData', userEmail], (oldData) => {
+      if (!oldData) return oldData
+      return { ...oldData, reminderNotifications: (oldData.reminderNotifications ?? []).filter(r => r.id !== reminderId) }
+    })
+    await supabase.from('customer_reminders').update({ dismissed: true }).eq('id', reminderId)
+    // Also update pipeline data so the modal reflects the change
+    queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
+  }
+
   const getSmsUrl = (phone, text = '') => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const separator = isIOS ? '&' : '?';
@@ -392,6 +401,8 @@ Balas *“YA”* untuk semakan 🆓
   };
 
   if (isLoading) return <div className="min-h-screen bg-gray-50 p-8 text-center font-bold text-slate-400 flex justify-center items-center">Loading workspace...</div>
+
+  const totalNotifCount = staffNotifications.length + visibleBirthdays.length + reminderNotifications.length
 
   const renderNav = () => (
     <nav 
@@ -409,13 +420,17 @@ Balas *“YA”* untuk semakan 🆓
             <span className="text-white">Tele Manager</span>
             <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest hidden lg:inline-block animate-nav-entry">STAFF</span>
           </h1>
-          <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl animate-nav-entry" style={{background: 'rgba(255,255,255,0.08)'}}>
-            <button onClick={() => navigateTo('leads')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'leads' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Leads</button>
-            <button onClick={() => navigateTo('manual')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'manual' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Manual Entry</button>
-            <button onClick={() => navigateTo('tutorial')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'tutorial' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Tutorial</button>
-          </div>
+          <NavSlider activeTab={activeTab} tabs={[
+            { id: 'leads', label: 'Leads' },
+            { id: 'pipeline', label: 'Pipeline' },
+            { id: 'notifications', label: 'Notifications', badge: totalNotifCount > 0 ? (totalNotifCount > 99 ? '99+' : totalNotifCount) : null },
+          ]} onSelect={navigateTo} />
         </div>
         <div className="flex items-center gap-4">
+          <button onClick={() => navigateTo('notifications')} className="relative p-2 rounded-sm text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
+            <svg className={`w-5 h-5 ${totalNotifCount > 0 ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+            {totalNotifCount > 0 && <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-black shadow-lg">{totalNotifCount > 99 ? '9+' : totalNotifCount}</span>}
+          </button>
           <UserDropdown userEmail={userEmail} userRole="agent" onLogout={onLogout} onReportIssue={() => setIsFeedbackModalOpen(true)} />
         </div>
       </div>
@@ -450,17 +465,20 @@ Balas *“YA”* untuk semakan 🆓
             </div>
 
             <button onClick={() => { navigateTo('leads'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all ${activeTab === 'leads' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
-              Leads Data
+              Leads
             </button>
-            <button onClick={() => { navigateTo('manual'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'manual' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
-              Manual Entry
+            <button onClick={() => { navigateTo('pipeline'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'pipeline' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
+              Pipeline
             </button>
-            <button onClick={() => { navigateTo('tutorial'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'tutorial' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
-              Tutorial
+            <button onClick={() => { navigateTo('notifications'); setIsMobileMenuOpen(false); }} className={`w-full text-left px-5 py-4 text-base font-bold transition-all border-t border-white/5 ${activeTab === 'notifications' ? 'bg-white/10 text-white' : 'text-indigo-200 hover:bg-white/5 hover:text-white'}`}>
+              <span className="flex items-center justify-between">
+                <span>Notifications</span>
+                {totalNotifCount > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black">{totalNotifCount}</span>}
+              </span>
             </button>
 
             <div className="mt-auto pt-6 border-t border-white/10 px-6">
-              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded font-black text-xs uppercase tracking-widest transition-all">
                 <LogOut className="w-4 h-4" /> Sign Out
               </button>
             </div>
@@ -470,195 +488,12 @@ Balas *“YA”* untuk semakan 🆓
     );
   }
 
-  if (activeTab === 'tutorial') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      {renderMobileMenu()}
-      <div className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-8 pb-8 animate-in fade-in duration-500">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-6">How to use Tele Manager</h2>
-          <p className="text-gray-600 mb-8 text-lg">Welcome to your workspace. Follow these simple steps to manage your daily leads effectively.</p>
-          <div className="space-y-8">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">1</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Review your pending numbers</h3><p className="text-gray-600 leading-relaxed">Your manager will assign numbers to your account. On the "My Leads" tab, you will see a list of numbers marked as "Pending". You can Call them directly from the list.</p></div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">2</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Use the Details Panel</h3><p className="text-gray-600 leading-relaxed">Click "Details". Here you can choose to Call, send an SMS, or open WhatsApp (which lets you send a standard message or the official promo script).</p></div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">3</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Update the Status & Notes</h3><p className="text-gray-600 leading-relaxed">After reaching out, change the status dropdown to reflect what happened (e.g., Called, Accepted, SMS Sent). Type details into the "Staff Notes" box and hit Save.</p></div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0 text-lg">4</div>
-              <div><h3 className="text-xl font-bold text-gray-800 mb-2">Upload Documents</h3><p className="text-gray-600 leading-relaxed">If a client sends a file to be validated, select their file (Max 2MB) and explicitly click "Confirm & Upload" to securely send it to management.</p></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {renderFeedbackModal()}
-    </div>
-  )
 
-  if (activeTab === 'manual') return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      {renderMobileMenu()}
-      <div className="flex-1 max-w-2xl w-full mx-auto p-6 md:p-8 pb-8 animate-in fade-in duration-500">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 sm:p-12">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Submit External Lead</h2>
-            <p className="text-gray-500 text-sm mt-1">Got a customer outside of your assigned database? Submit their details and documents here. It will instantly notify management.</p>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">Customer Phone Number *</label>
-              <input type="tel" value={manualPhone} onChange={(e) => setManualPhone(e.target.value)} placeholder="601..." className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" />
-            </div>
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">Details & Notes</label>
-              <textarea value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="Type customer info or package details..." className="w-full p-4 border border-gray-200 rounded-xl h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"></textarea>
-            </div>
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">Attach Document (Optional, Max 2MB)</label>
-              <input id="manual-file-input" type="file" accept=".pdf, image/png, image/jpeg" onChange={(e) => {
-                const f = e.target.files[0];
-                if (f && f.size > 2097152) { toast.warning("File too large!"); e.target.value = null; return; }
-                setManualFile(f);
-              }} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 p-2 rounded-xl" />
-            </div>
-            <button onClick={handleManualSubmit} disabled={isManualSaving} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition shadow-sm mt-4">
-              {isManualSaving ? "Submitting securely..." : "Submit External Lead"}
-            </button>
-          </div>
-        </div>
-      </div>
-      {renderFeedbackModal()}
-    </div>
-  )
 
-  if (selectedLead && activeTab === 'leads') {
-    const currentLead = leads.find(l => l.id === selectedLead.id); 
-    const whatsappLink = getWhatsAppUrl(currentLead.phone_number);
 
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-        {renderMobileMenu()}
-        <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
-          <div className="max-w-2xl mx-auto">
-            <button onClick={() => { navigateTo(activeTab, null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
-            
-            <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-              <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{formatPhone(currentLead.phone_number)}</h2>
-              <div className="flex items-center gap-2 mb-6">
-                <span className="text-sm font-bold text-gray-500">Status:</span>
-                <select value={currentLead.status} onChange={(e) => handleStatusChange(currentLead.id, e.target.value)} className="bg-gray-100 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 font-bold shadow-sm cursor-pointer outline-none">
-                  <option value="Pending">Pending</option>
-                  <option value="Called">Called</option>
-                  <option value="WhatsApp Sent">WhatsApp Sent</option>
-                  <option value="Accepted">Accepted</option>
-                  <option value="SMS Sent">SMS Sent</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Invalid Number">Invalid Number</option>
-                </select>
-              </div>
-              
-              <div className="flex flex-col gap-2 mb-2">
-                <a href={getCallUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
-                <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded-xl font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
-                  SMS
-                </button>
-                {isSmsOpen && (
-                  <div className="flex flex-col gap-2 mb-2 bg-slate-50 p-3 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-top-2 mt-0">
-                    <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                      <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
-                      <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
-                    </div>
-                    <div className="flex gap-2 mt-1">
-                      <button onClick={() => copyToClipboard(smsPromoScript, 'sms')} className="flex-1 text-xs text-slate-600 font-bold underline text-center">{copiedScript === 'sms' ? '✓ Copied!' : 'Copy Promo Script'}</button>
-                      <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="flex-1 text-xs text-slate-700 font-bold underline text-center">Edit My Script</button>
-                    </div>
-                    {isEditingSmsScript && (
-                      <div className="mt-2 flex flex-col gap-2">
-                        <textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white" rows="6" value={customSmsScript} onChange={(e) => setCustomSmsScript(e.target.value)} placeholder="Type your custom SMS script here..."></textarea>
-                        <button onClick={handleSaveSmsScript} className="bg-slate-700 text-white text-sm font-bold py-2 rounded-lg hover:bg-slate-800 transition shadow-sm">Save My Script</button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button onClick={() => setShowWaMenu(!showWaMenu)} className="w-full bg-green-500 text-white text-center py-3 rounded-xl font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
-                  WhatsApp
-                </button>
-              </div>
 
-              {showWaMenu && (
-                <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
-                  {/* WhatsApp app toggle */}
-                  <div className="flex items-center justify-end px-1 mb-1">
-                    <div className="flex items-center gap-1 bg-white border border-green-200 rounded-lg p-0.5">
-                      <button
-                        onClick={() => { setUseWaBusiness(false); localStorage.setItem(`wa_business_${userEmail}`, 'false'); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                          !useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
-                        }`}
-                      >Personal</button>
-                      <button
-                        onClick={() => { setUseWaBusiness(true); localStorage.setItem(`wa_business_${userEmail}`, 'true'); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                          useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
-                        }`}
-                      >Business</button>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                    <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
-                    <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
-                  </div>
-                  <div className="flex gap-2 mt-1">
-                    <button onClick={() => copyToClipboard(promoScript, 'wa')} className="flex-1 text-xs text-green-700 font-bold underline text-center">{copiedScript === 'wa' ? '✓ Copied!' : 'Copy Promo Script'}</button>
-                    <button onClick={() => setIsEditingScript(!isEditingScript)} className="flex-1 text-xs text-green-700 font-bold underline text-center">Edit My Script</button>
-                  </div>
-                  {isEditingScript && (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <textarea className="w-full border border-green-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white" rows="6" value={customScript} onChange={(e) => setCustomScript(e.target.value)} placeholder="Type your custom WhatsApp script here..."></textarea>
-                      <button onClick={handleSaveScript} className="bg-green-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-green-700 transition shadow-sm">Save My Script</button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {!showWaMenu && <div className="mb-8"></div>}
 
-              <div className="mb-6 pt-6 border-t border-gray-100">
-                <label className="block text-gray-700 font-bold mb-2">Staff Notes</label>
-                <textarea className="w-full border border-gray-200 rounded-xl p-4 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="Type remarks here..." value={currentNote} onChange={(e) => setCurrentNote(e.target.value)}></textarea>
-                <button onClick={handleSaveNote} disabled={isSavingNote} className="mt-2 bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-lg hover:bg-blue-200 transition">{isSavingNote ? "Saving..." : "Save Note"}</button>
-              </div>
 
-              <div className="pt-6 border-t border-gray-100">
-                <label className="block text-gray-700 font-bold mb-2">Attached Document (Max 2MB)</label>
-                {currentLead.document_url ? (
-                  <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 flex justify-between items-center">
-                    <a href={currentLead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-2">📎 View File</a>
-                    <button onClick={handleDeleteFile} disabled={uploadingFile} className="text-red-500 font-bold text-sm hover:text-red-700 transition">Delete File</button>
-                  </div>
-                ) : ( 
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input type="file" accept=".pdf, image/png, image/jpeg" onChange={handleFileSelect} disabled={uploadingFile} className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 p-1 rounded-xl" /> 
-                    {selectedFile && (
-                      <button onClick={handleFileUploadSubmit} disabled={uploadingFile} className="bg-blue-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-blue-700 shadow-sm transition whitespace-nowrap">
-                        {uploadingFile ? "Uploading..." : "Confirm & Upload"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        {renderFeedbackModal()}
-      </div>
-    )
-  }
 
   const filteredLeads = leads.filter(lead => {
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter
@@ -680,9 +515,210 @@ Balas *“YA”* untuk semakan 🆓
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">{renderNav()}
-      {renderMobileMenu()}
+  const renderNotificationsTab = () => (
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div style={{background: 'linear-gradient(135deg, #312e81 0%, #4338ca 60%, #3730a3 100%)'}} className="rounded p-6 shadow-lg relative overflow-hidden mb-6">
+        <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
+        <div className="relative z-10 flex items-center gap-3">
+          <span className="bg-white/15 rounded p-2"><Bell className="w-6 h-6 text-white" /></span>
+          <div>
+            <h2 className="text-xl font-extrabold text-white">Notifications</h2>
+            <p className="text-indigo-200 text-xs font-medium">{totalNotifCount > 0 ? `${totalNotifCount} unread` : 'All clear — no new notifications'}</p>
+          </div>
+        </div>
+      </div>
+
+      {totalNotifCount === 0 && (
+        <div className="bg-white rounded shadow-sm border border-gray-100 p-12 text-center">
+          <Bell className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-bold">No notifications right now.</p>
+          <p className="text-gray-400 text-sm mt-1">You'll be notified when leads are assigned, a customer has a birthday, or a reminder is due.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {/* New lead drops */}
+        {staffNotifications.map(notif => (
+          <div key={notif.id} className="border border-indigo-200 rounded p-5 bg-indigo-50/50 relative group shadow-sm">
+            <button
+              onClick={() => handleDismissLeadNotif(notif.id, notif.ids)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 font-bold text-xs p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100"
+            >✕ Dismiss</button>
+            <div className="flex items-start gap-3 pr-20">
+              <Inbox className="w-6 h-6 text-indigo-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-indigo-900 text-sm">New Leads Assigned</h3>
+                <p className="text-sm text-indigo-800 mt-0.5">{notif.message}</p>
+                <button onClick={() => navigateTo('leads')} className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition">View Leads →</button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Birthday notifications */}
+        {visibleBirthdays.map(customer => (
+          <div key={customer.id} className="border border-rose-200 rounded p-5 bg-rose-50/50 relative group shadow-sm">
+            <button
+              onClick={() => handleDismissBirthday(customer.id)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-rose-600 font-bold text-xs p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-rose-100"
+            >✕ Dismiss</button>
+            <div className="flex items-start gap-3 pr-20">
+              <Cake className="w-6 h-6 text-rose-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-rose-900 text-sm flex items-center gap-1.5"><Cake className="w-4 h-4 text-rose-500" /> Birthday Today!</h3>
+                <p className="text-sm text-rose-800 mt-0.5">
+                  <strong>{customer.fullName}</strong>'s birthday is today — great time to follow up!
+                </p>
+                <button onClick={() => navigateTo('pipeline')} className="mt-2 text-xs font-bold text-rose-600 hover:text-rose-800 underline underline-offset-2 transition">Go to Pipeline →</button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Follow-up reminder notifications */}
+        {reminderNotifications.map(reminder => (
+          <div key={reminder.id} className="border border-violet-200 rounded p-5 bg-violet-50/50 relative group shadow-sm">
+            <button
+              onClick={() => handleDismissReminder(reminder.id)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-violet-600 font-bold text-xs p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-violet-100"
+            >✕ Dismiss</button>
+            <div className="flex items-start gap-3 pr-20">
+              <Bell className="w-6 h-6 text-violet-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-violet-900 text-sm flex items-center gap-1.5"><Bell className="w-4 h-4 text-violet-500" /> Follow-Up Reminder</h3>
+                <p className="text-sm text-violet-800 mt-0.5">
+                  <strong>{reminder.customerName}</strong> — {reminder.note}
+                </p>
+                <button onClick={() => navigateTo('pipeline')} className="mt-2 text-xs font-bold text-violet-600 hover:text-violet-800 underline underline-offset-2 transition">Go to Pipeline →</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+
+
+  const renderLeadsTab = () => {
+    if (selectedLead && activeTab === 'leads') {
+      const currentLead = leads.find(l => l.id === selectedLead.id)
+      if (!currentLead) return null
+      return (
+        <div className="flex-1 p-4 sm:p-8 pb-8 animate-in slide-in-from-right-8 duration-300">
+          <div className="max-w-2xl mx-auto">
+            <button onClick={() => { navigateTo(activeTab, null); setCurrentNote(''); setShowWaMenu(false); setIsSmsOpen(false); setIsEditingSmsScript(false); setSelectedFile(null); }} className="mb-6 text-blue-600 font-bold hover:text-blue-800 flex items-center gap-2 transition">← Back to List</button>
+            <div className="bg-white rounded shadow-md p-6 border border-gray-100">
+              <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{formatPhone(currentLead.phone_number)}</h2>
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-sm font-bold text-gray-500">Status:</span>
+                <select value={currentLead.status} onChange={(e) => handleStatusChange(currentLead.id, e.target.value)} className="bg-gray-100 border border-gray-200 text-gray-800 text-sm rounded-sm focus:ring-blue-500 focus:border-blue-500 p-2 font-bold shadow-sm cursor-pointer outline-none">
+                  <option value="Pending">Pending</option>
+                  <option value="Called">Called</option>
+                  <option value="WhatsApp Sent">WhatsApp Sent</option>
+                  <option value="Accepted">Accepted</option>
+                  <option value="SMS Sent">SMS Sent</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Invalid Number">Invalid Number</option>
+                </select>
+              </div>
+              {/* Actions */}
+              <div className="flex flex-col gap-2 mb-2">
+                <a href={getCallUrl(currentLead.phone_number)} onClick={() => handleStatusChange(currentLead.id, 'Called')} className="w-full bg-blue-600 text-white text-center py-3 rounded font-bold hover:bg-blue-700 shadow-sm transition block">Call</a>
+                <button onClick={() => setIsSmsOpen(!isSmsOpen)} className="w-full bg-slate-800 text-white text-center py-3 rounded font-bold hover:bg-slate-900 shadow-sm transition flex items-center justify-center gap-1">
+                  SMS
+                </button>
+                {isSmsOpen && (
+                  <div className="flex flex-col gap-2 mb-2 bg-slate-50 p-3 rounded border border-slate-200 animate-in fade-in slide-in-from-top-2 mt-0">
+                    <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                      <a href={getSmsUrl(currentLead.phone_number, smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-slate-600 text-white text-center py-2.5 rounded-sm text-sm font-bold hover:bg-slate-700 transition shadow-sm">Promo Script</a>
+                      <a href={getSmsUrl(currentLead.phone_number, customSmsScript || smsPromoScript)} onClick={() => handleStatusChange(currentLead.id, 'SMS Sent')} className="flex-1 bg-indigo-600 text-white text-center py-2.5 rounded-sm text-sm font-bold hover:bg-indigo-700 transition shadow-sm">My Script</a>
+                    </div>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => copyToClipboard(smsPromoScript, 'sms')} className="flex-1 text-xs text-slate-600 font-bold underline text-center">{copiedScript === 'sms' ? '✓ Copied!' : 'Copy Promo Script'}</button>
+                      <button onClick={() => setIsEditingSmsScript(!isEditingSmsScript)} className="flex-1 text-xs text-slate-700 font-bold underline text-center">Edit My Script</button>
+                    </div>
+                    {isEditingSmsScript && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <textarea className="w-full border border-slate-300 rounded-sm p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 bg-white" rows="6" value={customSmsScript} onChange={(e) => setCustomSmsScript(e.target.value)} placeholder="Type your custom SMS script here..."></textarea>
+                        <button onClick={handleSaveSmsScript} className="bg-slate-700 text-white text-sm font-bold py-2 rounded-sm hover:bg-slate-800 transition shadow-sm">Save My Script</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button onClick={() => setShowWaMenu(!showWaMenu)} className="w-full bg-green-500 text-white text-center py-3 rounded font-bold hover:bg-green-600 shadow-sm transition flex items-center justify-center gap-1">
+                  WhatsApp
+                </button>
+              </div>
+
+              {showWaMenu && (
+                <div className="flex flex-col gap-2 mb-8 bg-green-50 p-3 rounded border border-green-100 animate-in fade-in slide-in-from-top-2 mt-2">
+                  {/* WhatsApp app toggle */}
+                  <div className="flex items-center justify-end px-1 mb-1">
+                    <div className="flex items-center gap-1 bg-white border border-green-200 rounded-sm p-0.5">
+                      <button
+                        onClick={() => { setUseWaBusiness(false); localStorage.setItem(`wa_business_${userEmail}`, 'false'); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                          !useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
+                        }`}
+                      >Personal</button>
+                      <button
+                        onClick={() => { setUseWaBusiness(true); localStorage.setItem(`wa_business_${userEmail}`, 'true'); }}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                          useWaBusiness ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-50'
+                        }`}
+                      >Business</button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                    <a href={getWhatsAppUrl(currentLead.phone_number, promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-green-600 text-white text-center py-2.5 rounded-sm text-sm font-bold hover:bg-green-700 transition shadow-sm">Promo Script</a>
+                    <a href={getWhatsAppUrl(currentLead.phone_number, customScript || promoScript)} target="_blank" rel="noreferrer" onClick={() => handleStatusChange(currentLead.id, 'WhatsApp Sent')} className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-sm text-sm font-bold hover:bg-teal-700 transition shadow-sm">My Script</a>
+                  </div>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={() => copyToClipboard(promoScript, 'wa')} className="flex-1 text-xs text-green-700 font-bold underline text-center">{copiedScript === 'wa' ? '✓ Copied!' : 'Copy Promo Script'}</button>
+                    <button onClick={() => setIsEditingScript(!isEditingScript)} className="flex-1 text-xs text-green-700 font-bold underline text-center">Edit My Script</button>
+                  </div>
+                  {isEditingScript && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <textarea className="w-full border border-green-200 rounded-sm p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white" rows="6" value={customScript} onChange={(e) => setCustomScript(e.target.value)} placeholder="Type your custom WhatsApp script here..."></textarea>
+                      <button onClick={handleSaveScript} className="bg-green-600 text-white text-sm font-bold py-2 rounded-sm hover:bg-green-700 transition shadow-sm">Save My Script</button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!showWaMenu && <div className="mb-8"></div>}
+              {/* Notes */}
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <label className="block text-gray-700 font-bold mb-2">Remarks / Notes</label>
+                <textarea className="w-full border border-gray-200 rounded p-4 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="Type remarks here..." value={currentNote} onChange={(e) => setCurrentNote(e.target.value)}></textarea>
+                <button onClick={handleSaveNote} disabled={isSavingNote} className="mt-2 bg-blue-100 text-blue-700 font-bold px-4 py-2 rounded-sm hover:bg-blue-200 transition">{isSavingNote ? "Saving..." : "Save Note"}</button>
+              </div>
+              {/* File */}
+              <div className="pt-6 border-t border-gray-100">
+                <label className="block text-gray-700 font-bold mb-2">Attached Document (Max 2MB)</label>
+                {currentLead.document_url ? (
+                  <div className="mb-4 bg-gray-50 p-4 rounded border border-gray-200 flex justify-between items-center">
+                    <a href={currentLead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold hover:underline flex items-center gap-2">📎 View File</a>
+                    <button onClick={handleDeleteFile} disabled={uploadingFile} className="text-red-500 font-bold text-sm hover:text-red-700 transition">Delete File</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input type="file" accept=".pdf, image/png, image/jpeg" onChange={handleFileSelect} disabled={uploadingFile} className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 p-1 rounded" />
+                    {selectedFile && (
+                      <button onClick={handleFileUploadSubmit} disabled={uploadingFile} className="bg-blue-600 text-white font-bold py-2.5 px-6 rounded hover:bg-blue-700 shadow-sm transition whitespace-nowrap">
+                        {uploadingFile ? "Uploading..." : "Confirm & Upload"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    return (
       <div className="flex-1 p-4 sm:p-8 pb-8 animate-in fade-in duration-500">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
@@ -690,15 +726,9 @@ Balas *“YA”* untuk semakan 🆓
             <div className="flex flex-row gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search number..."
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-full"
-                />
+                <input type="text" placeholder="Search number..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="pl-9 pr-4 py-2 border border-gray-200 rounded-sm text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-full" />
               </div>
-              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="p-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm shrink-0">
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }} className="p-2 border border-gray-200 rounded-sm text-sm font-bold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm shrink-0">
                 <option value="All">All Leads</option>
                 <option value="Pending">Pending</option>
                 <option value="Called">Called</option>
@@ -710,16 +740,15 @@ Balas *“YA”* untuk semakan 🆓
               </select>
             </div>
           </div>
-
           {totalLeads > 0 && (
             <div className="mb-6 space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-center"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-1 truncate">Pending</p><p className="text-xl font-black text-gray-700">{pendingCount}</p></div>
-                <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-3 text-center"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-1 truncate">Called</p><p className="text-xl font-black text-blue-700">{calledCount}</p></div>
-                <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-100 p-3 text-center"><p className="text-[10px] text-purple-600 font-bold uppercase tracking-wide mb-1 truncate">WA'd</p><p className="text-xl font-black text-purple-700">{whatsappCount}</p></div>
-                <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-100 p-3 text-center"><p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wide mb-1 truncate">SMS'd</p><p className="text-xl font-black text-yellow-700">{thinkingCount}</p></div>
+                <div className="bg-white rounded shadow-sm border border-gray-100 p-3 text-center"><p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-1 truncate">Pending</p><p className="text-xl font-black text-gray-700">{pendingCount}</p></div>
+                <div className="bg-blue-50 rounded shadow-sm border border-blue-100 p-3 text-center"><p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide mb-1 truncate">Called</p><p className="text-xl font-black text-blue-700">{calledCount}</p></div>
+                <div className="bg-purple-50 rounded shadow-sm border border-purple-100 p-3 text-center"><p className="text-[10px] text-purple-600 font-bold uppercase tracking-wide mb-1 truncate">WA'd</p><p className="text-xl font-black text-purple-700">{whatsappCount}</p></div>
+                <div className="bg-yellow-50 rounded shadow-sm border border-yellow-100 p-3 text-center"><p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wide mb-1 truncate">SMS'd</p><p className="text-xl font-black text-yellow-700">{thinkingCount}</p></div>
               </div>
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+              <div className="bg-white rounded shadow-sm p-4 border border-gray-100">
                 <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
                   <span>Total Progress</span>
                   <div className="flex items-center gap-3">
@@ -731,17 +760,15 @@ Balas *“YA”* untuk semakan 🆓
               </div>
             </div>
           )}
-
-
-          {filteredLeads.length === 0 ? <div className="bg-white rounded-2xl shadow-sm p-10 text-center font-medium text-gray-500">No numbers found.</div> : (
+          {filteredLeads.length === 0 ? <div className="bg-white rounded shadow-sm p-10 text-center font-medium text-gray-500">No numbers found.</div> : (
             <div className="space-y-4">
               {currentLeads.map((lead, index) => (
-                <div key={lead.id} className={`rounded-2xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-y border-r border-gray-100 transition-colors duration-300 ${getCardStyle(lead.status)}`}>
+                <div key={lead.id} className={`rounded shadow-sm p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-y border-r border-gray-100 transition-colors duration-300 ${getCardStyle(lead.status)}`}>
                   <div className="flex items-center gap-3">
                     <span className="text-gray-400 font-black w-6 text-right text-sm">{(currentPage - 1) * leadsPerPage + index + 1}.</span>
                     <div>
                       <h3 className="text-xl font-bold text-gray-800 mb-1 tracking-tight">{formatPhone(lead.phone_number)}</h3>
-                      <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold shadow-sm cursor-pointer outline-none">
+                      <select value={lead.status} onChange={(e) => handleStatusChange(lead.id, e.target.value)} className="bg-white border border-gray-200 text-gray-700 text-sm rounded-sm focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold shadow-sm cursor-pointer outline-none">
                         <option value="Pending">Pending</option>
                         <option value="Called">Called</option>
                         <option value="WhatsApp Sent">WhatsApp Sent</option>
@@ -753,22 +780,46 @@ Balas *“YA”* untuk semakan 🆓
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                    <a href={getCallUrl(lead.phone_number)} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
-                    <button onClick={() => navigateTo('leads', lead.id)} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
+                    <a href={getCallUrl(lead.phone_number)} onClick={() => handleStatusChange(lead.id, 'Called')} className="flex-1 sm:flex-none bg-blue-600 text-white text-center px-6 py-2.5 rounded font-bold hover:bg-blue-700 shadow-sm transition">Call</a>
+                    <button onClick={() => navigateTo('leads', lead.id)} className="flex-1 sm:flex-none bg-white border border-gray-200 text-gray-700 text-center px-6 py-2.5 rounded font-bold hover:bg-gray-50 shadow-sm transition">Details</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
           {totalPages > 1 && (
-            <div className="flex justify-between items-center mt-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold disabled:opacity-50 hover:bg-gray-100 transition">Previous</button>
+            <div className="flex justify-between items-center mt-8 bg-white p-4 rounded shadow-sm border border-gray-100">
+              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-sm font-bold disabled:opacity-50 hover:bg-gray-100 transition">Previous</button>
               <span className="text-gray-500 font-bold text-sm">Page {currentPage} of {totalPages}</span>
-              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-lg font-bold disabled:opacity-50 hover:bg-gray-100 transition">Next</button>
+              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-sm font-bold disabled:opacity-50 hover:bg-gray-100 transition">Next</button>
             </div>
           )}
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <ConfirmDialog />
+      {renderNav()}
+      {renderMobileMenu()}
+      <main className="flex-1">
+        {activeTab === 'leads' && renderLeadsTab()}
+
+        {activeTab === 'pipeline' && (
+          <div className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
+            <Suspense fallback={<LazySpinner label="Loading Pipeline..." />}>
+              <CustomerPipelinePage userEmail={userEmail} />
+            </Suspense>
+          </div>
+        )}
+        {activeTab === 'notifications' && (
+          <div className="p-4 sm:p-8 pb-8 animate-in fade-in duration-500">
+            {renderNotificationsTab()}
+          </div>
+        )}
+      </main>
       {renderFeedbackModal()}
     </div>
   )

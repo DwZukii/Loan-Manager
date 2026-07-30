@@ -1,15 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { formatPhone } from '../utils'
 import { createPortal } from 'react-dom'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import LazySpinner from './LazySpinner'
 import UserDropdown from './UserDropdown'
+import NavSlider from './NavSlider'
 import { Bell, Trash2, ShieldCheck, BarChart3, PieChart as PieChartIcon, Users, User, Sparkles, RefreshCw, Bug, X, Target, BookOpen, LogOut, Menu, Lightbulb, MessageSquare, CheckCircle, CheckCircle2, XCircle, Clock, PhoneOff, Brain, ClipboardList, Phone, Mail, Paperclip, FileText, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminData } from '../hooks/useAdminData'
 import { useConfirm } from '../hooks/useConfirm'
+
+const GlobalMatrixTab = lazy(() => import('./admin/GlobalMatrixTab'))
+const CustomerPipelineAdminPage = lazy(() => import('./pipeline/CustomerPipelineAdminPage'))
 
 export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const queryClient = useQueryClient();
@@ -30,8 +34,6 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const [expandedGroup, setExpandedGroup] = useState(null)
   const [managerSearch, setManagerSearch] = useState('')
   const [staffSearch, setStaffSearch] = useState('')
-  const [globalStaffSearch, setGlobalStaffSearch] = useState('')
-  const [globalManagerSearch, setGlobalManagerSearch] = useState('')
 
   const [validNumbers, setValidNumbers] = useState([])
   const [previewItems, setPreviewItems] = useState([]) // {phone, age?}
@@ -677,7 +679,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
   const handleDismissNotification = async (id) => {
     const leadToDismiss = activeLeads.find(lead => lead.id === id); 
-    if (!(await confirm("Dismiss this notification?"))) return;
+    
 
     queryClient.setQueryData(['adminData', userEmail], (old) => old ? { ...old, activeLeads: old.activeLeads.filter(l => l.id !== id) } : null);
 
@@ -856,12 +858,12 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-        <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> Clean & Add</h2>
+        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
+          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> Clean & Add</h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
             <div>
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Target Database Set</label>
-              <select value={uploadSet} onChange={(e) => setUploadSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Database: Set A</option><option value="Set B">Database: Set B</option><option value="Set C">Database: Set C</option></select>
+              <select value={uploadSet} onChange={(e) => setUploadSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Database: Set A</option><option value="Set B">Database: Set B</option><option value="Set C">Database: Set C</option></select>
             </div>
             {/* ── Extract Mode Picker ── */}
             <div>
@@ -871,7 +873,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 {/* Mode A — default */}
                 <button
                   onClick={() => { setExtractMode('all'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); setFilesNeedAnalysis(false); document.getElementById('file-upload-input').value = '' }}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                  className={`p-3.5 rounded border-2 text-left transition-all duration-200 ${
                     extractMode === 'all' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
                 >
@@ -884,7 +886,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 {/* Mode B — optional, age-filtered */}
                 <button
                   onClick={() => { setExtractMode('age'); setValidNumbers([]); setUploadStatus(''); setSelectedFiles([]); setFilesNeedAnalysis(false); document.getElementById('file-upload-input').value = '' }}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                  className={`p-3.5 rounded border-2 text-left transition-all duration-200 ${
                     extractMode === 'age' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
                   }`}
                 >
@@ -901,7 +903,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
               {/* Age range inputs — only visible in Mode B */}
               {extractMode === 'age' && (
-                <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded">
                   <p className="text-xs text-amber-800 font-bold mb-3">⚠️ Rows without a recognisable Malaysian IC will be skipped entirely.</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -909,7 +911,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <input
                         type="number" value={minAge} min="1" max="100"
                         onChange={e => setMinAge(parseInt(e.target.value) || 0)}
-                        className="w-full p-2.5 border border-amber-200 rounded-xl text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full p-2.5 border border-amber-200 rounded text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
                     </div>
                     <div>
@@ -917,7 +919,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <input
                         type="number" value={maxAge} min="1" max="100"
                         onChange={e => setMaxAge(parseInt(e.target.value) || 0)}
-                        className="w-full p-2.5 border border-amber-200 rounded-xl text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full p-2.5 border border-amber-200 rounded text-sm font-bold text-indigo-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
                     </div>
                   </div>
@@ -931,7 +933,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 Upload Spreadsheets
                 <span className="ml-1.5 text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
               </label>
-              <input id="file-upload-input" type="file" multiple accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded-xl bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              <input id="file-upload-input" type="file" multiple accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
               {/* ── Selected file chips ── */}
               {selectedFiles.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -955,19 +957,19 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
             <div className="mt-auto pt-4">
               {filesNeedAnalysis ? (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm">
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded shadow-sm">
                   <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
                   {isAnalyzing && (
                     <div className="w-full bg-indigo-200 rounded-full h-2 mb-3 overflow-hidden">
                       <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${analyzeProgress}%` }}></div>
                     </div>
                   )}
-                  <button onClick={() => scanFiles(selectedFiles)} disabled={isAnalyzing} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">
+                  <button onClick={() => scanFiles(selectedFiles)} disabled={isAnalyzing} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">
                     {isAnalyzing ? `Analyzing... ${analyzeProgress}%` : 'Confirm & Analyze Files'}
                   </button>
                 </div>
               ) : validNumbers.length > 0 ? (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm space-y-3">
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded shadow-sm space-y-3">
                   <p className="text-sm font-bold text-indigo-800 text-center">{uploadStatus}</p>
                   {/* ── NUMBER PREVIEW ── */}
                   {(() => {
@@ -975,7 +977,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     const totalPages = Math.ceil(previewItems.length / PAGE_SIZE);
                     const pageItems = previewItems.slice(previewPage * PAGE_SIZE, (previewPage + 1) * PAGE_SIZE);
                     return (
-                      <div className="bg-white border border-indigo-200 rounded-xl overflow-hidden">
+                      <div className="bg-white border border-indigo-200 rounded overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2 bg-indigo-100/60 border-b border-indigo-200">
                           <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">Preview — {validNumbers.length} numbers ready</span>
                           {previewItems.some(i => i.age != null) && <span className="text-xs font-bold text-indigo-500">age shown</span>}
@@ -985,7 +987,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                             {pageItems.map((item, idx) => {
                               const realIdx = previewPage * PAGE_SIZE + idx;
                               return (
-                                <span key={realIdx} className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-lg pl-2 pr-1 py-0.5 text-xs font-mono text-indigo-900">
+                                <span key={realIdx} className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-sm pl-2 pr-1 py-0.5 text-xs font-mono text-indigo-900">
                                   {item.phone}
                                   {item.age != null && <span className="bg-indigo-200 text-indigo-800 font-black rounded px-1">{item.age}y</span>}
                                   <button
@@ -1009,13 +1011,13 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                               <button
                                 onClick={() => setPreviewPage(p => Math.max(0, p - 1))}
                                 disabled={previewPage === 0}
-                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-30 transition-colors"
+                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-sm hover:bg-indigo-200 disabled:opacity-30 transition-colors"
                               >← Prev</button>
                               <span className="text-xs font-bold text-indigo-500">Page {previewPage + 1} of {totalPages}</span>
                               <button
                                 onClick={() => setPreviewPage(p => Math.min(totalPages - 1, p + 1))}
                                 disabled={previewPage === totalPages - 1}
-                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-30 transition-colors"
+                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-sm hover:bg-indigo-200 disabled:opacity-30 transition-colors"
                               >Next →</button>
                             </div>
                           )}
@@ -1023,22 +1025,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       </div>
                     );
                   })()}
-                  <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Admin ${uploadSet}`}</button>
+                  <button onClick={handleUploadToDatabase} disabled={isUploadingToDB} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isUploadingToDB ? 'Pushing...' : `Push to Admin ${uploadSet}`}</button>
                   <button
                     onClick={() => { setValidNumbers([]); setPreviewItems([]); setPreviewPage(0); setSelectedFiles([]); setUploadStatus(''); document.getElementById('file-upload-input').value = ''; }}
                     disabled={isUploadingToDB}
-                    className="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3 rounded-xl hover:bg-red-100 transition-all disabled:opacity-50"
+                    className="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3 rounded hover:bg-red-100 transition-all disabled:opacity-50"
                   >Discard All</button>
                 </div>
-              ) : uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">{uploadStatus}</p>}
+              ) : uploadStatus && <p className="text-sm font-bold text-indigo-600 bg-indigo-50 p-3 rounded-sm border border-indigo-100 text-center">{uploadStatus}</p>}
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 relative flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> Assign to Staff</h2>
+        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative flex flex-col h-full">
+          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> Assign to Staff</h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
-            <div className="bg-white rounded-xl border border-indigo-200 flex flex-col text-sm text-indigo-900 shadow-sm overflow-hidden">
+            <div className="bg-white rounded border border-indigo-200 flex flex-col text-sm text-indigo-900 shadow-sm overflow-hidden">
               <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set A Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set A']||0}</b></div>
               <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set B Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
               <div className="flex justify-between items-center p-3.5 font-bold bg-indigo-50/50"><span>Set C Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
@@ -1046,11 +1048,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Pull From</label>
-                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
+                <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Amount</label>
-                <input type="number" list="assign-amounts" value={assignAmount} onChange={(e) => setAssignAmount(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow" placeholder="Type..." min="1" />
+                <input type="number" list="assign-amounts" value={assignAmount} onChange={(e) => setAssignAmount(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow" placeholder="Type..." min="1" />
                 <datalist id="assign-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="300" /></datalist>
               </div>
             </div>
@@ -1064,7 +1066,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   onChange={e => { setAssignEmailQuery(e.target.value); setAssignEmail(''); setShowStaffDropdown(true); }}
                   onFocus={() => setShowStaffDropdown(true)}
                   onBlur={() => setTimeout(() => setShowStaffDropdown(false), 150)}
-                  className="w-full p-3.5 border border-indigo-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow pr-8"
+                  className="w-full p-3.5 border border-indigo-200 rounded bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow pr-8"
                 />
                 {assignEmailQuery && (
                   <button
@@ -1077,7 +1079,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 const filtered = agentsList.filter(a => a.email.toLowerCase().includes(assignEmailQuery.toLowerCase()));
                 if (filtered.length === 0) return null;
                 return (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-indigo-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-indigo-200 rounded shadow-lg overflow-y-auto max-h-48">
                     {filtered.map(a => (
                       <button
                         key={a.email}
@@ -1097,29 +1099,29 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               })()}
             </div>
             <div className="mt-auto pt-2 space-y-3">
-              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Leads'}</button>
-              {unassignedCounts[assignSet] > 0 && <button onClick={handleClearPool} disabled={isClearing} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">{isClearing ? 'Clearing...' : 'Clear Selected Set'}</button>}
-              {assignStatus && <p className="text-sm font-bold text-indigo-700 bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center shadow-sm">{assignStatus}</p>}
+              <button onClick={handleAssignLeads} disabled={isAssigning} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">{isAssigning ? 'Assigning...' : 'Assign Leads'}</button>
+              {unassignedCounts[assignSet] > 0 && <button onClick={handleClearPool} disabled={isClearing} className="w-full py-2.5 border-2 border-red-100 text-red-500 rounded text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">{isClearing ? 'Clearing...' : 'Clear Selected Set'}</button>}
+              {assignStatus && <p className="text-sm font-bold text-indigo-700 bg-indigo-50 p-3 rounded-sm border border-indigo-100 text-center shadow-sm">{assignStatus}</p>}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 relative z-20 flex flex-col xl:flex-row gap-8 items-center mt-6">
+      <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative z-20 flex flex-col xl:flex-row gap-8 items-center mt-6">
 
         <div className="xl:w-1/3 relative z-10 text-center xl:text-left flex flex-col items-center xl:items-start">
-          <h2 className="text-2xl font-bold text-blue-900 mb-3 flex items-center gap-3"><span className="bg-blue-100 text-blue-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Share2 className="w-5 h-5" /></span> Share to Managers</h2>
+          <h2 className="text-2xl font-bold text-blue-900 mb-3 flex items-center gap-3"><span className="bg-blue-100 text-blue-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Share2 className="w-5 h-5" /></span> Share to Managers</h2>
           <p className="text-sm text-blue-700/80 max-w-sm">Transfer robust leads from your Admin pool directly into a Manager's command pool seamlessly.</p>
         </div>
         
         <div className="xl:w-2/3 w-full flex-1 flex flex-col sm:flex-row gap-4 relative z-10 items-end">
           <div className="w-full sm:w-1/4">
             <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">Pull From</label>
-            <select value={transferSet} onChange={(e) => setTransferSet(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
+            <select value={transferSet} onChange={(e) => setTransferSet(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
           </div>
           <div className="w-full sm:w-1/4">
             <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">Amount</label>
-            <input type="number" list="transfer-amounts" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" placeholder="Type..." min="1" />
+            <input type="number" list="transfer-amounts" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" placeholder="Type..." min="1" />
             <datalist id="transfer-amounts"><option value="50" /><option value="100" /><option value="200" /><option value="500" /><option value="1000" /></datalist>
           </div>
           <div className="w-full sm:w-2/4 relative">
@@ -1136,7 +1138,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 }}
                 onFocus={() => setShowManagerDropdown(true)}
                 onBlur={() => setTimeout(() => setShowManagerDropdown(false), 150)}
-                className="w-full p-3.5 border border-blue-200 rounded-xl bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow pr-8"
+                className="w-full p-3.5 border border-blue-200 rounded bg-white font-bold text-gray-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow pr-8"
               />
               {transferManagerQuery && (
                 <button
@@ -1149,7 +1151,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               const filtered = managersList.filter(m => m.email.toLowerCase().includes(transferManagerQuery.toLowerCase()));
               if (filtered.length === 0) return null;
               return (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-blue-200 rounded-xl shadow-lg overflow-y-auto max-h-48">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-blue-200 rounded shadow-lg overflow-y-auto max-h-48">
                   {filtered.map(m => (
                     <button
                       key={m.email}
@@ -1174,17 +1176,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             })()}
           </div>
           <div className="w-full sm:w-auto">
-            <button onClick={handleTransferLeads} disabled={isTransferring} className="w-full bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-blue-700 shadow flex-shrink-0 transition-all whitespace-nowrap disabled:opacity-50">{isTransferring ? 'Transferring...' : 'Transfer Leads'}</button>
+            <button onClick={handleTransferLeads} disabled={isTransferring} className="w-full bg-blue-600 text-white font-bold py-3.5 px-8 rounded hover:bg-blue-700 shadow flex-shrink-0 transition-all whitespace-nowrap disabled:opacity-50">{isTransferring ? 'Transferring...' : 'Transfer Leads'}</button>
           </div>
         </div>
       </div>
-      {transferStatus && <p className="text-sm font-bold text-blue-700 bg-blue-50 p-4 border border-blue-100 rounded-xl text-center shadow-sm">{transferStatus}</p>}
+      {transferStatus && <p className="text-sm font-bold text-blue-700 bg-blue-50 p-4 border border-blue-100 rounded text-center shadow-sm">{transferStatus}</p>}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm"><Trash2 className="w-5 h-5" /></span>
+              <span className="bg-red-100 text-red-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm"><Trash2 className="w-5 h-5" /></span>
               <h2 className="text-xl font-bold text-red-900">Cold Storage</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days across the system.</p>
@@ -1193,16 +1195,16 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <button 
             onClick={handleArchiveDeadLeads} 
             disabled={isArchiving} 
-            className="w-full bg-red-600 py-3 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10"
+            className="w-full bg-red-600 py-3 text-white font-bold rounded hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10"
           >
             {isArchiving ? "Incinerating..." : "Archive Dead Leads"}
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-gray-100 text-gray-700 rounded-lg w-10 h-10 flex items-center justify-center shadow-sm"><ShieldCheck className="w-5 h-5" /></span>
+              <span className="bg-gray-100 text-gray-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm"><ShieldCheck className="w-5 h-5" /></span>
               <h2 className="text-xl font-bold text-gray-900">Data Quality</h2>
             </div>
             <p className="text-sm text-gray-600 mb-4">There are <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} leads</span> marked as invalid. Purge them to maintain database health.</p>
@@ -1211,7 +1213,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           <button 
             onClick={handlePurgeInvalidLeads} 
             disabled={isPurging} 
-            className="w-full bg-gray-800 py-3 text-white font-bold rounded-xl hover:bg-gray-900 shadow-sm transition disabled:opacity-50 relative z-10"
+            className="w-full bg-gray-800 py-3 text-white font-bold rounded hover:bg-gray-900 shadow-sm transition disabled:opacity-50 relative z-10"
           >
             {isPurging ? "Purging..." : "Purge Invalid Leads"}
           </button>
@@ -1225,18 +1227,18 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     const sortedGroups = Object.entries(grouped).sort(([, a], [, b]) => { const aHasDoc = a.some(l => l.document_url); const bHasDoc = b.some(l => l.document_url); if (aHasDoc && !bHasDoc) return -1; if (!aHasDoc && bHasDoc) return 1; return 0; });
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div style={{background: 'linear-gradient(135deg, #78350f 0%, #b45309 60%, #92400e 100%)'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
+        <div style={{background: 'linear-gradient(135deg, #78350f 0%, #b45309 60%, #92400e 100%)'}} className="rounded p-8 shadow-2xl overflow-hidden relative">
           <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #fbbf24 0%, transparent 60%)'}}></div>
           <div className="relative z-10 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3"><span className="bg-white/15 rounded-xl p-2"><Bell className="w-6 h-6 text-white" /></span>Activity Hub</h2>
+              <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3"><span className="bg-white/15 rounded p-2"><Bell className="w-6 h-6 text-white" /></span>Activity Hub</h2>
               <p className="text-amber-200 text-sm font-medium">{activeLeads.length} unresolved notification{activeLeads.length !== 1 ? 's' : ''} across {sortedGroups.length} staff member{sortedGroups.length !== 1 ? 's' : ''}</p>
             </div>
-            {activeLeads.length > 0 && <button onClick={handleDismissAllNotifications} className="px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl transition border border-white/20 text-sm flex-shrink-0">Dismiss All ({activeLeads.length})</button>}
+            {activeLeads.length > 0 && <button onClick={handleDismissAllNotifications} className="px-5 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded transition border border-white/20 text-sm flex-shrink-0">Dismiss All ({activeLeads.length})</button>}
           </div>
         </div>
         {activeLeads.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-amber-100 p-16 text-center shadow-sm">
+          <div className="bg-white rounded border border-amber-100 p-16 text-center shadow-sm">
             <div className="text-5xl mb-4">🎉</div>
             <h3 className="text-xl font-black text-gray-800 mb-2">All clear!</h3>
             <p className="text-gray-500 font-medium">No active notes or files to review from your team.</p>
@@ -1250,10 +1252,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               const noteCount = leads.filter(l => l.agent_notes && l.agent_notes.trim() !== '').length;
               const acceptedCount = leads.filter(l => l.status === 'Accepted').length;
               return (
-                <div key={staffEmail} className={`rounded-2xl border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
+                <div key={staffEmail} className={`rounded border transition-all duration-200 overflow-hidden ${hasDoc ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-amber-100 shadow-sm'}`}>
                   <button onClick={() => setExpandedGroup(isOpen ? null : staffEmail)} className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors ${hasDoc ? 'bg-indigo-50 hover:bg-indigo-100/70' : 'bg-amber-50/60 hover:bg-amber-50'}`}>
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>{staffEmail.charAt(0).toUpperCase()}</div>
+                      <div className={`w-10 h-10 rounded flex items-center justify-center font-black text-sm flex-shrink-0 ${hasDoc ? 'bg-indigo-600 text-white' : 'bg-amber-400 text-white'}`}>{staffEmail.charAt(0).toUpperCase()}</div>
                       <div className="text-left">
                         <p className="font-black text-gray-900">{staffEmail}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -1273,13 +1275,13 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-gray-100">
                       {leads.map(lead => (
                         <div key={lead.id} className="p-4 relative group bg-white hover:bg-gray-50 transition-colors">
-                          <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-lg border border-gray-100 shadow-sm">✕ Dismiss</button>
+                          <button onClick={() => handleDismissNotification(lead.id)} className="absolute right-4 top-4 text-gray-300 hover:text-red-500 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded-sm border border-gray-100 shadow-sm">✕ Dismiss</button>
                           <div className="flex items-start justify-between pr-20 mb-2">
                             <div className="flex items-center gap-2">{lead.document_url && <span className="text-indigo-500 text-sm">📎</span>}<span className="font-black text-gray-900">{formatPhone(lead.phone_number)}</span><span className="text-xs text-gray-400 font-medium">{lead.lead_set || 'Set A'}</span></div>
                             <span className={`text-[10px] px-2.5 py-1 rounded-full font-black flex-shrink-0 ${lead.status === 'Accepted' ? 'bg-green-100 text-green-700' : lead.status === 'Rejected' ? 'bg-red-100 text-red-700' : lead.status === 'Pending' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>{lead.status}</span>
                           </div>
-                          {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-lg px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
-                          {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors">📎 View Document</a>}
+                          {lead.agent_notes && <p className="text-xs text-gray-600 italic bg-gray-50 rounded-sm px-3 py-2 mb-2 border border-gray-100">"{lead.agent_notes}"</p>}
+                          {lead.document_url && <a href={lead.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-sm border border-indigo-100 transition-colors">📎 View Document</a>}
                         </div>
                       ))}
                     </div>
@@ -1293,276 +1295,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     );
   }
 
-  const calculateGlobalPipeline = () => {
-    let pending = 0, called = 0, whatsapp = 0, accepted = 0, rejected = 0, thinking = 0;
-    agentStats.forEach(agent => {
-      pending += agent.pending;
-      called += agent.called;
-      whatsapp += agent.whatsapp;
-      accepted += agent.accepted;
-      rejected += agent.rejected;
-      thinking += agent.thinking;
-    });
-    return [
-      { name: 'Pending', value: pending, color: '#9ca3af' },
-      { name: 'Called', value: called, color: '#3b82f6' },
-      { name: 'WhatsApp', value: whatsapp, color: '#8b5cf6' },
-      { name: 'Thinking', value: thinking, color: '#eab308' },
-      { name: 'Accepted', value: accepted, color: '#22c55e' },
-      { name: 'Rejected', value: rejected, color: '#ef4444' }
-    ].filter(item => item.value > 0);
-  };
-
-  const renderDataMatrixTab = () => {
-    // Total stats for header (removed unused totalCalled)
-    const totalLeads = agentStats.reduce((s, a) => s + a.total, 0);
-    const totalPending = agentStats.reduce((s, a) => s + a.pending, 0);
-    const totalCalled = agentStats.reduce((s, a) => s + a.called, 0);
-    const totalWhatsapp = agentStats.reduce((s, a) => s + a.whatsapp, 0);
-    const totalSms = agentStats.reduce((s, a) => s + a.thinking, 0);
-    return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-      {/* Page Header */}
-      <div style={{background: '#1e1b4b'}} className="rounded-2xl p-8 shadow-2xl overflow-hidden relative">
-        <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
-        <div className="relative z-10">
-          <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
-            <span className="bg-white/15 rounded-xl p-2"><BarChart3 className="w-6 h-6 text-white" /></span>
-            Global Staff Matrix
-          </h2>
-          <p className="text-indigo-300 text-sm font-medium mb-6">Real-time performance intelligence across your entire operation.</p>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              { label: 'Total Assigned', value: totalLeads, color: 'from-blue-400/20 to-indigo-400/20', border: 'border-blue-400/30', text: 'text-blue-200' },
-              { label: 'Pending', value: totalPending, color: 'from-gray-400/20 to-slate-400/20', border: 'border-gray-400/30', text: 'text-gray-300' },
-              { label: 'Called', value: totalCalled, color: 'from-indigo-400/20 to-blue-400/20', border: 'border-indigo-400/30', text: 'text-indigo-300' },
-              { label: "WA'd", value: totalWhatsapp, color: 'from-purple-400/20 to-fuchsia-400/20', border: 'border-purple-400/30', text: 'text-purple-300' },
-              { label: "SMS'd", value: totalSms, color: 'from-yellow-400/20 to-amber-400/20', border: 'border-yellow-400/30', text: 'text-yellow-300' },
-            ].map(s => (
-              <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded-xl p-4`}>
-                <p className={`text-xs font-black uppercase tracking-widest ${s.text} mb-1`}>{s.label}</p>
-                <p className="text-3xl font-black text-white">{s.value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
-              <p className="text-xs text-gray-400">Called · WhatsApp · SMS per agent</p>
-            </div>
-          </div>
-          <div className="p-6 h-72">
-            {agentStats.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No agent data available</p></div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={agentStats} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
-                  <XAxis dataKey="email" tickFormatter={(v) => v.split('@')[0]} stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip cursor={{fill: '#f5f5ff'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}} />
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
-                  <Bar dataKey="called" name="Called" fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="whatsapp" name="WhatsApp" fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="thinking" name="SMS" fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center text-violet-500"><PieChartIcon className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-sm font-extrabold text-gray-900">Pipeline Health</h3>
-              <p className="text-xs text-gray-400">Global lead status breakdown</p>
-            </div>
-          </div>
-          <div className="p-6 h-72 flex items-center justify-center">
-            {calculateGlobalPipeline().length === 0 ? (
-              <div className="flex flex-col items-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No pipeline data</p></div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={calculateGlobalPipeline()} cx="50%" cy="50%" innerRadius={65} outerRadius={88} paddingAngle={3} dataKey="value" stroke="none">
-                    {calculateGlobalPipeline().map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip wrapperStyle={{outline: 'none'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}}/>
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Staff Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
-              <p className="text-xs text-gray-400 font-medium mt-0.5">
-                {agentStats.filter(a => a.email.toLowerCase().includes(globalStaffSearch.toLowerCase())).length} of {agentStats.length} agents tracked across all teams
-              </p>
-            </div>
-          </div>
-          <div className="relative flex-shrink-0">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input
-              type="text"
-              placeholder="Search staff..."
-              value={globalStaffSearch}
-              onChange={e => setGlobalStaffSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
-            />
-            {globalStaffSearch && (
-              <button onClick={() => setGlobalStaffSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            )}
-          </div>
-        </div>
-        {agentStats.length === 0 ? (
-          <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No leads assigned yet.</p></div>
-        ) : (() => {
-          const filtered = agentStats.filter(a => a.email.toLowerCase().includes(globalStaffSearch.toLowerCase()));
-          if (filtered.length === 0) return (
-            <div className="text-center py-12">
-              <div className="text-3xl mb-3">🔍</div>
-              <p className="font-bold text-gray-500">No staff match <span className="text-indigo-600">"{globalStaffSearch}"</span></p>
-              <button onClick={() => setGlobalStaffSearch('')} className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
-            </div>
-          );
-          return (
-            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr style={{background: '#1e1b4b'}}>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Assigned</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest">Pending</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-blue-300 uppercase tracking-widest">Called</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-purple-300 uppercase tracking-widest">WA'd</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-yellow-300 uppercase tracking-widest">SMS'd</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((agent, i) => (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors group">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
-                          <button onClick={() => loadAgentProfile(agent)} className="text-sm font-bold text-gray-800 hover:text-indigo-600 transition-colors">{agent.email}</button>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5"><span className="text-sm font-black text-gray-900">{agent.total}</span></td>
-                      <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg font-bold text-xs border border-gray-200">{agent.pending}</span></td>
-                      <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-blue-100">{agent.called}</span></td>
-                      <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
-                      <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-lg font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Manager Pool */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-lg font-extrabold text-gray-900">Manager Pool Overview</h3>
-              <p className="text-xs text-gray-400 font-medium mt-0.5">
-                {managerStats.filter(m => m.email.toLowerCase().includes(globalManagerSearch.toLowerCase())).length} of {managerStats.length} managers
-              </p>
-            </div>
-          </div>
-          <div className="relative flex-shrink-0">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input
-              type="text"
-              placeholder="Search managers..."
-              value={globalManagerSearch}
-              onChange={e => setGlobalManagerSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
-            />
-            {globalManagerSearch && (
-              <button onClick={() => setGlobalManagerSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            )}
-          </div>
-        </div>
-        {managerStats.length === 0 ? (
-          <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No managers found.</p></div>
-        ) : (() => {
-          const filtered = managerStats.filter(m => m.email.toLowerCase().includes(globalManagerSearch.toLowerCase()));
-          if (filtered.length === 0) return (
-            <div className="text-center py-12">
-              <div className="text-3xl mb-3">🔍</div>
-              <p className="font-bold text-gray-500">No managers match <span className="text-indigo-600">"{globalManagerSearch}"</span></p>
-              <button onClick={() => setGlobalManagerSearch('')} className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
-            </div>
-          );
-          return (
-            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr style={{background: '#1e1b4b'}}>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Manager</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff Count</th>
-                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Unassigned Pool</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((manager, i) => (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-700 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{manager.email.charAt(0)}</div>
-                          <span className="text-sm font-bold text-gray-800">{manager.email}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5"><span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-black border border-indigo-100">{manager.total_agents} Staff</span></td>
-                      <td className="px-5 py-3.5">
-                        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-black border border-blue-100">{manager.unassigned_pool} Leads</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        })()}
-      </div>
-
-    </div>
-    );
-  }
 
   const renderDirectoryTab = () => (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-8">
 
         {/* Provision New Account */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div className="bg-white rounded shadow-sm overflow-hidden border border-gray-100">
           <div style={{background: '#1e1b4b'}} className="px-8 py-6 flex items-center gap-4">
-            <span className="bg-white/15 rounded-xl p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
+            <span className="bg-white/15 rounded p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
               <h3 className="text-xl font-extrabold text-white">Provision New Account</h3>
               <p className="text-indigo-300 text-sm mt-0.5 font-medium">Create a secure login for a new staff member or manager.</p>
@@ -1572,24 +1313,24 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Email Address</label>
-                <input type="email" placeholder="user@company.com" value={newAccEmail} onChange={(e) => setNewAccEmail(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium" />
+                <input type="email" placeholder="user@company.com" value={newAccEmail} onChange={(e) => setNewAccEmail(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium" />
               </div>
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Password</label>
-                <div className="relative"><input type={showNewAccPassword ? "text" : "password"} placeholder="Min. 6 characters" value={newAccPassword} onChange={(e) => setNewAccPassword(e.target.value)} className="w-full p-3 pr-12 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium" /><button type="button" onClick={() => setShowNewAccPassword(!showNewAccPassword)} className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-indigo-600 transition-colors">{showNewAccPassword ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}</button></div>
+                <div className="relative"><input type={showNewAccPassword ? "text" : "password"} placeholder="Min. 6 characters" value={newAccPassword} onChange={(e) => setNewAccPassword(e.target.value)} className="w-full p-3 pr-12 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium" /><button type="button" onClick={() => setShowNewAccPassword(!showNewAccPassword)} className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-indigo-600 transition-colors">{showNewAccPassword ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}</button></div>
               </div>
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Assign Role</label>
-                <select value={newAccRole} onChange={e => setNewAccRole(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50"><option value="agent">Role: Staff</option><option value="manager">Role: Manager</option><option value="general_manager">Role: General Manager</option></select>
+                <select value={newAccRole} onChange={e => setNewAccRole(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50"><option value="agent">Role: Staff</option><option value="manager">Role: Manager</option><option value="general_manager">Role: General Manager</option></select>
               </div>
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">{newAccRole === 'general_manager' ? 'Assign Managers to GM' : 'Assign To Manager'}</label>
                 {newAccRole === 'agent' ? (
-                  <select value={newAccManager} onChange={e => setNewAccManager(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium"><option value="">No Manager (Unassigned)</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>
+                  <select value={newAccManager} onChange={e => setNewAccManager(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium"><option value="">No Manager (Unassigned)</option>{managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}</select>
                 ) : newAccRole === 'general_manager' ? (
-                  <div className="w-full max-h-32 overflow-y-auto p-2 border-2 border-gray-200 rounded-xl bg-gray-50 space-y-1 custom-scrollbar">
+                  <div className="w-full max-h-32 overflow-y-auto p-2 border-2 border-gray-200 rounded bg-gray-50 space-y-1 custom-scrollbar">
                     {managersList.map(m => (
-                      <label key={m.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-200 hover:shadow-sm">
+                      <label key={m.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-sm cursor-pointer transition-colors border border-transparent hover:border-gray-200 hover:shadow-sm">
                         <input type="checkbox" checked={selectedManagersForGM.includes(m.email)} onChange={(e) => {
                           if (e.target.checked) setSelectedManagersForGM([...selectedManagersForGM, m.email]);
                           else setSelectedManagersForGM(selectedManagersForGM.filter(email => email !== m.email));
@@ -1600,23 +1341,23 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     {managersList.length === 0 && <p className="text-xs text-gray-400 italic p-2 text-center">No managers available.</p>}
                   </div>
                 ) : (
-                  <div className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-400 italic">Not applicable for Managers</div>
+                  <div className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded text-sm text-gray-400 italic">Not applicable for Managers</div>
                 )}
               </div>
             </div>
             <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-4">
-              {accCreateStatus && <p className={`text-sm font-bold px-4 py-3 rounded-xl ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
-              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50 w-full sm:w-auto self-start">⚡ {isCreatingAcc ? 'Creating...' : 'Create Secure Account'}</button>
+              {accCreateStatus && <p className={`text-sm font-bold px-4 py-3 rounded ${accCreateStatus.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>{accCreateStatus}</p>}
+              <button onClick={handleCreateAccount} disabled={isCreatingAcc} className="bg-indigo-600 text-white font-bold py-3 px-8 rounded text-sm hover:bg-indigo-700 active:scale-95 transition-all shadow-md shadow-indigo-200 disabled:opacity-50 w-full sm:w-auto self-start">⚡ {isCreatingAcc ? 'Creating...' : 'Create Secure Account'}</button>
             </div>
           </div>
         </div>
 
         {/* Manager Directory & Teams */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
           <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span> Manager Directory & Teams</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span> Manager Directory & Teams</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {managersList.filter(m => m.email.toLowerCase().includes(managerSearch.toLowerCase())).length} of {managersList.length} manager{managersList.length !== 1 ? 's' : ''} · {agentsList.length} total staff
                 </p>
@@ -1628,7 +1369,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   placeholder="Search managers..."
                   value={managerSearch}
                   onChange={e => setManagerSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
                 />
                 {managerSearch && (
                   <button onClick={() => setManagerSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -1650,20 +1391,20 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     {filtered.map(m => {
                       const team = agentsList.filter(a => a.manager_email === m.email);
                       return (
-                        <div key={m.id} className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden hover:border-blue-200 hover:shadow-md transition-all duration-300">
+                        <div key={m.id} className="bg-white border-2 border-gray-100 rounded overflow-hidden hover:border-blue-200 hover:shadow-md transition-all duration-300">
                           <button
                             type="button"
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(m); }}
                             className="w-full text-left p-5 border-b border-blue-100 bg-blue-50/40 hover:bg-blue-50 transition-colors block"
                           >
                             <div className="flex items-center gap-4 mb-4">
-                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase shadow-sm flex-shrink-0">{m.email.charAt(0)}</div>
+                              <div className="w-12 h-12 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase shadow-sm flex-shrink-0">{m.email.charAt(0)}</div>
                               <div className="min-w-0">
                                 {m.full_name && <h4 className="font-extrabold text-gray-900 text-lg truncate leading-tight">{m.full_name}</h4>}
                                 <p className={`text-sm truncate font-bold text-gray-500 ${!m.full_name && 'text-lg text-gray-900'}`}>{m.email}</p>
                               </div>
                             </div>
-                            {m.contact_number ? (<div className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 w-full justify-center"><Phone className="w-4 h-4" />{m.contact_number}</div>) : (<div className="inline-flex items-center gap-1.5 text-sm text-gray-400 font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 w-full justify-center">No contact number</div>)}
+                            {m.contact_number ? (<div className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-sm border border-indigo-100 w-full justify-center"><Phone className="w-4 h-4" />{m.contact_number}</div>) : (<div className="inline-flex items-center gap-1.5 text-sm text-gray-400 font-bold bg-gray-50 px-3 py-1.5 rounded-sm border border-gray-200 w-full justify-center">No contact number</div>)}
                           </button>
                           <div className="p-4 bg-white">
                             {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (() => {
@@ -1672,11 +1413,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                               const hasMore = team.length > 3;
                               return (
                                 <>
-                                  <div className="grid grid-cols-1 gap-2">{visibleTeam.map((a) => (<button key={a.id} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(a); }} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-sm uppercase flex-shrink-0">{a.email.charAt(0)}</div><p className="text-sm font-medium text-gray-700 truncate">{a.email}</p></button>))}</div>
+                                  <div className="grid grid-cols-1 gap-2">{visibleTeam.map((a) => (<button key={a.id} type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewingStaffContact(a); }} className="flex items-center gap-3 p-3 rounded bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-sm uppercase flex-shrink-0">{a.email.charAt(0)}</div><p className="text-sm font-medium text-gray-700 truncate">{a.email}</p></button>))}</div>
                                   {hasMore && (
                                     <button 
                                       onClick={() => setExpandedManagers(prev => ({...prev, [m.id]: !prev[m.id]}))}
-                                      className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-lg border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center shadow-sm"
+                                      className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-sm border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center shadow-sm"
                                     >
                                       {isExpanded ? 'Hide Staff \u2191' : `View All ${team.length} Staff \u2193`}
                                     </button>
@@ -1696,11 +1437,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Reassign Staff */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
           <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600"><RefreshCw className="w-5 h-5" /></span> Reassign Staff</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-sm flex items-center justify-center text-amber-600"><RefreshCw className="w-5 h-5" /></span> Reassign Staff</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {agentsList.filter(a => a.email.toLowerCase().includes(staffSearch.toLowerCase())).length} of {agentsList.length} staff member{agentsList.length !== 1 ? 's' : ''}
                 </p>
@@ -1712,7 +1453,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   placeholder="Search staff..."
                   value={staffSearch}
                   onChange={e => setStaffSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
                 />
                 {staffSearch && (
                   <button onClick={() => setStaffSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -1751,7 +1492,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                           </div>
                         </td>
                         <td className="px-6 py-3.5">
-                          <select value={agent.manager_email || ''} onChange={(e) => handleAssignManager(agent.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 font-bold text-gray-700 outline-none transition-all">
+                          <select value={agent.manager_email || ''} onChange={(e) => handleAssignManager(agent.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 font-bold text-gray-700 outline-none transition-all">
                             <option value="">Unassigned</option>
                             {managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}
                           </select>
@@ -1766,11 +1507,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         </div>
 
         {/* Reassign Managers to GMs */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mt-6">
+        <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden mt-6">
           <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600"><Users className="w-5 h-5" /></span> Assign Managers to GM</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-blue-600"><Users className="w-5 h-5" /></span> Assign Managers to GM</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {managersList.length} manager{managersList.length !== 1 ? 's' : ''} available
                 </p>
@@ -1803,7 +1544,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                           </div>
                         </td>
                         <td className="px-6 py-3.5">
-                          <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 font-bold text-gray-700 outline-none transition-all">
+                          <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 font-bold text-gray-700 outline-none transition-all">
                             <option value="">Unassigned</option>
                             {gmList.map(gm => <option key={gm.id} value={gm.email}>{gm.email}</option>)}
                           </select>
@@ -1840,15 +1581,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               <button 
                 onClick={() => handleDeleteUser(p.email)}
                 disabled={deletingUser === p.email}
-                className="bg-white border-2 border-red-100 text-red-600 font-bold px-4 py-2 rounded-xl text-sm hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                className="bg-white border-2 border-red-100 text-red-600 font-bold px-4 py-2 rounded text-sm hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {deletingUser === p.email ? 'Deleting...' : <><Trash2 className="w-4 h-4" /> Delete Account</>}
               </button>
             )}
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8">
+          <div className="bg-white p-6 rounded shadow-sm border border-gray-100 mb-8">
             <div className="flex items-start gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0 shadow-md">
+              <div className="w-14 h-14 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase flex-shrink-0 shadow-md">
                 {p.email.charAt(0)}
               </div>
               <div className="min-w-0">
@@ -1877,13 +1618,13 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4">Staff Performance Overview</p>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Total</p><p className="text-2xl font-black text-gray-800">{p.total}</p></div>
-              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center"><p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Called</p><p className="text-2xl font-black text-blue-700">{p.called}</p></div>
-              <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 text-center"><p className="text-xs text-purple-600 font-bold uppercase tracking-wide">WA'd</p><p className="text-2xl font-black text-purple-700">{p.whatsapp}</p></div>
-              <div className="bg-green-50 rounded-xl p-4 border border-green-100 text-center"><p className="text-xs text-green-600 font-bold uppercase tracking-wide">Accepted</p><p className="text-2xl font-black text-green-700">{p.accepted}</p></div>
-              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 text-center"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wide">SMS'd</p><p className="text-2xl font-black text-yellow-700">{p.thinking}</p></div>
-              <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center"><p className="text-xs text-red-600 font-bold uppercase tracking-wide">Rejected</p><p className="text-2xl font-black text-red-700">{p.rejected}</p></div>
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Invalid</p><p className="text-2xl font-black text-gray-800">{p.invalid}</p></div>
+              <div className="bg-gray-50 rounded p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Total</p><p className="text-2xl font-black text-gray-800">{p.total}</p></div>
+              <div className="bg-blue-50 rounded p-4 border border-blue-100 text-center"><p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Called</p><p className="text-2xl font-black text-blue-700">{p.called}</p></div>
+              <div className="bg-purple-50 rounded p-4 border border-purple-100 text-center"><p className="text-xs text-purple-600 font-bold uppercase tracking-wide">WA'd</p><p className="text-2xl font-black text-purple-700">{p.whatsapp}</p></div>
+              <div className="bg-green-50 rounded p-4 border border-green-100 text-center"><p className="text-xs text-green-600 font-bold uppercase tracking-wide">Accepted</p><p className="text-2xl font-black text-green-700">{p.accepted}</p></div>
+              <div className="bg-yellow-50 rounded p-4 border border-yellow-100 text-center"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wide">SMS'd</p><p className="text-2xl font-black text-yellow-700">{p.thinking}</p></div>
+              <div className="bg-red-50 rounded p-4 border border-red-100 text-center"><p className="text-xs text-red-600 font-bold uppercase tracking-wide">Rejected</p><p className="text-2xl font-black text-red-700">{p.rejected}</p></div>
+              <div className="bg-gray-50 rounded p-4 border border-gray-100 text-center"><p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Invalid</p><p className="text-2xl font-black text-gray-800">{p.invalid}</p></div>
             </div>
             <div className="mt-6">
               <div className="flex justify-between text-sm font-bold text-gray-700 mb-2">
@@ -1895,10 +1636,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-white p-6 rounded shadow-sm border border-gray-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h3 className="text-xl font-bold text-gray-800">Assigned Numbers</h3>
-              <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select value={profileFilter} onChange={(e) => { setProfileFilter(e.target.value); setProfilePage(1); }} className="p-2.5 border border-gray-200 rounded-sm text-sm font-bold text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="All">Show All Leads</option>
                 <option value="Pending">Pending Only</option>
                 <option value="Called">Called Only</option>
@@ -1911,9 +1652,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
             {isProfileLoading ? <p className="text-gray-500 text-center py-8">Loading leads...</p> : filteredProfileLeads.length === 0 ? <p className="text-gray-500 text-center py-8">No numbers found for this filter.</p> : (
               <>
-                <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="bg-gray-50 border-y border-gray-200"><th className="p-3 font-semibold text-gray-600 text-sm">#</th><th className="p-3 font-semibold text-gray-600 text-sm">Phone Number</th><th className="p-3 font-semibold text-gray-600 text-sm">Status</th><th className="p-3 font-semibold text-gray-600 text-sm w-1/3">Staff Notes</th><th className="p-3 font-semibold text-gray-600 text-sm">Document</th><th className="p-3 font-semibold text-gray-600 text-sm text-right">Admin Action</th></tr></thead><tbody>{currentProfileLeads.map((lead, index) => { return (<tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50"><td className="p-3 text-sm text-gray-400 font-bold">{(profilePage - 1) * profileLeadsPerPage + index + 1}</td><td className="p-3 font-bold text-gray-800">{formatPhone(lead.phone_number)}</td><td className="p-3"><span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === "Accepted" ? "bg-green-100 text-green-700" : lead.status === "Rejected" ? "bg-red-100 text-red-700" : lead.status === "Pending" ? "bg-gray-200 text-gray-700" : "bg-blue-100 text-blue-700"}`}>{lead.status}</span></td><td className="p-3 text-sm text-gray-600 italic">{lead.agent_notes ? `"${lead.agent_notes}"` : <span className="text-gray-400">No notes</span>}</td><td className="p-3">{lead.document_url ? <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold hover:underline">View</a> : <span className="text-gray-400 text-sm">-</span>}</td><td className="p-3 text-right"><button onClick={() => handleRevokeSingleLead(lead.id)} className="bg-white border border-red-200 text-red-600 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-red-50 transition">Revoke</button></td></tr>)})}</tbody></table></div>
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="bg-gray-50 border-y border-gray-200"><th className="p-3 font-semibold text-gray-600 text-sm">#</th><th className="p-3 font-semibold text-gray-600 text-sm">Phone Number</th><th className="p-3 font-semibold text-gray-600 text-sm">Status</th><th className="p-3 font-semibold text-gray-600 text-sm w-1/3">Staff Notes</th><th className="p-3 font-semibold text-gray-600 text-sm">Document</th><th className="p-3 font-semibold text-gray-600 text-sm text-right">Admin Action</th></tr></thead><tbody>{currentProfileLeads.map((lead, index) => { return (<tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50"><td className="p-3 text-sm text-gray-400 font-bold">{(profilePage - 1) * profileLeadsPerPage + index + 1}</td><td className="p-3 font-bold text-gray-800">{formatPhone(lead.phone_number)}</td><td className="p-3"><span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === "Accepted" ? "bg-green-100 text-green-700" : lead.status === "Rejected" ? "bg-red-100 text-red-700" : lead.status === "Pending" ? "bg-gray-200 text-gray-700" : "bg-blue-100 text-blue-700"}`}>{lead.status}</span></td><td className="p-3 text-sm text-gray-600 italic">{lead.agent_notes ? `"${lead.agent_notes}"` : <span className="text-gray-400">No notes</span>}</td><td className="p-3">{lead.document_url ? <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold hover:underline">View</a> : <span className="text-gray-400 text-sm">-</span>}</td><td className="p-3 text-right"><button onClick={() => handleRevokeSingleLead(lead.id)} className="bg-white border border-red-200 text-red-600 font-bold px-3 py-1.5 rounded-sm text-xs hover:bg-red-50 transition">Revoke</button></td></tr>)})}</tbody></table></div>
                 {totalProfilePages > 1 && (
-                  <div className="flex justify-between items-center mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100"><button onClick={() => setProfilePage(prev => Math.max(prev - 1, 1))} disabled={profilePage === 1} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-100 transition font-bold border border-gray-200">Previous</button><span className="text-gray-500 font-bold text-sm">Page {profilePage} of {totalProfilePages}</span><button onClick={() => setProfilePage(prev => Math.min(prev + 1, totalProfilePages))} disabled={profilePage === totalProfilePages} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-100 transition font-bold border border-gray-200">Next</button></div>
+                  <div className="flex justify-between items-center mt-6 bg-white p-4 rounded shadow-sm border border-gray-100"><button onClick={() => setProfilePage(prev => Math.max(prev - 1, 1))} disabled={profilePage === 1} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-sm disabled:opacity-50 hover:bg-gray-100 transition font-bold border border-gray-200">Previous</button><span className="text-gray-500 font-bold text-sm">Page {profilePage} of {totalProfilePages}</span><button onClick={() => setProfilePage(prev => Math.min(prev + 1, totalProfilePages))} disabled={profilePage === totalProfilePages} className="px-5 py-2 bg-gray-50 text-gray-700 rounded-sm disabled:opacity-50 hover:bg-gray-100 transition font-bold border border-gray-200">Next</button></div>
                 )}
               </>
             )}
@@ -1926,7 +1667,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
   const renderFeedbackTab = () => {
     return (
       <div className="animate-in fade-in duration-500 max-w-6xl mx-auto space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+        <div className="bg-white rounded shadow-sm border border-gray-100 p-8">
           <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-3xl font-extrabold text-indigo-900 tracking-tight">Feedback Center</h2>
@@ -1954,7 +1695,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{fb.user_role}</div>
                     </td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold leading-none ${fb.type === 'Bug' ? 'bg-rose-100 text-rose-700' : fb.type === 'Suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-bold leading-none ${fb.type === 'Bug' ? 'bg-rose-100 text-rose-700' : fb.type === 'Suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'}`}>
                         {fb.type === 'Bug' ? <><Bug className="w-3.5 h-3.5" /> Bug</> : fb.type === 'Suggestion' ? <><Lightbulb className="w-3.5 h-3.5" /> Suggestion</> : <><MessageSquare className="w-3.5 h-3.5" /> Other</>}
                       </span>
                     </td>
@@ -1966,7 +1707,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                         <select 
                           value={fb.status} 
                           onChange={(e) => handleFeedbackStatusChange(fb.id, e.target.value)}
-                          className={`text-sm font-bold rounded-lg px-3 py-1.5 border text-right cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${fb.status === 'Resolved' ? 'bg-green-50 border-green-200 text-green-700' : fb.status === 'In Progress' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
+                          className={`text-sm font-bold rounded-sm px-3 py-1.5 border text-right cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${fb.status === 'Resolved' ? 'bg-green-50 border-green-200 text-green-700' : fb.status === 'In Progress' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}
                         >
                           <option value="New">New</option>
                           <option value="In Progress">In Progress</option>
@@ -1975,7 +1716,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                         {userRole === 'super_admin' && (
                           <button 
                             onClick={() => handleDeleteFeedback(fb.id)} 
-                            className="bg-white border border-red-200 text-red-600 font-bold p-1.5 rounded-lg hover:bg-red-50 transition"
+                            className="bg-white border border-red-200 text-red-600 font-bold p-1.5 rounded-sm hover:bg-red-50 transition"
                             title="Delete Report"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1998,7 +1739,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       {isFeedbackModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFeedbackModalOpen(false)}></div>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded w-full max-w-md shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100 overflow-hidden">
             <div className="border-b border-gray-100 p-6 bg-slate-50">
               <h3 className="text-xl font-extrabold text-slate-800">Submit Feedback</h3>
               <p className="text-sm text-slate-500 font-medium mt-1">Found a bug or have a suggestion? Let us know.</p>
@@ -2014,15 +1755,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 <div className="space-y-3">
                   <label className="block text-sm font-bold text-slate-700">Issue Type</label>
                   <div className="grid grid-cols-3 gap-3">
-                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Bug')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Bug' ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <Bug className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Bug</span>
                     </button>
-                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Suggestion')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Suggestion' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <Lightbulb className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Idea</span>
                     </button>
-                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
+                    <button type="button" onClick={() => setFeedbackType('Other')} className={`flex flex-col items-center justify-center p-3 rounded border-2 transition-all ${feedbackType === 'Other' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}>
                       <MessageSquare className="w-6 h-6 mb-1.5" />
                       <span className="text-xs font-bold">Other</span>
                     </button>
@@ -2030,11 +1771,11 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
-                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                  <textarea value={feedbackMessage} onChange={e => setFeedbackMessage(e.target.value)} placeholder="Describe what happened or your idea..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded font-medium h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Cancel</button>
-                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
+                  <button onClick={() => setIsFeedbackModalOpen(false)} className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded hover:bg-slate-200 transition">Cancel</button>
+                  <button onClick={handleFeedbackSubmit} disabled={isFeedbackSubmitting || !feedbackMessage.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500">{isFeedbackSubmitting ? 'Sending...' : 'Submit'}</button>
                 </div>
               </div>
             )}
@@ -2068,20 +1809,20 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             <div className="mb-6">
               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Connected as</p>
               <p className="text-base font-bold text-white mb-1 truncate">{userEmail}</p>
-              <span className="inline-block bg-indigo-500/30 text-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border border-indigo-400/30">{userRole}</span>
+
             </div>
 
-            <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+            <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <Target className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Data Centre</p>
             </button>
 
-            <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+            <button onClick={() => { setActiveTab('data'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <BarChart3 className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Global Matrix</p>
             </button>
 
-            <button onClick={() => { setActiveTab('activity'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'activity' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+            <button onClick={() => { setActiveTab('activity'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'activity' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <Bell className="w-6 h-6" />
               <div className="flex-1 flex items-center justify-between">
                 <p className="font-black text-xs uppercase tracking-wider">Activity Hub</p>
@@ -2089,12 +1830,17 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
             </button>
 
-            <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+            <button onClick={() => { setActiveTab('directory'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <BookOpen className="w-6 h-6" />
               <p className="font-black text-xs uppercase tracking-wider">Directory</p>
             </button>
 
-            <button onClick={() => { setActiveTab('feedback'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+            <button onClick={() => { setActiveTab('pipeline'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'pipeline' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <ClipboardList className="w-6 h-6" />
+              <p className="font-black text-xs uppercase tracking-wider">Pipeline</p>
+            </button>
+
+            <button onClick={() => { setActiveTab('feedback'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <Bug className="w-6 h-6" />
               <div className="flex-1 flex items-center justify-between">
                 <p className="font-black text-xs uppercase tracking-wider">Feedback Hub</p>
@@ -2103,7 +1849,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </button>
 
             <div className="mt-auto pt-6 border-t border-white/10">
-              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">
+              <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded font-black text-xs uppercase tracking-widest transition-all">
                 <LogOut className="w-4 h-4" /> Sign Out
               </button>
             </div>
@@ -2130,21 +1876,19 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             </div>
             <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
               <span className="text-white">Tele Manager</span>
-              <span style={{background: 'rgba(99,102,241,0.35)', border: '1px solid rgba(165,180,252,0.4)'}} className="text-indigo-200 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-widest hidden lg:inline-block animate-nav-entry">{userRole}</span>
+
             </h1>
-            <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl animate-nav-entry" style={{background: 'rgba(255,255,255,0.08)'}}>
-              <button onClick={() => setActiveTab('overview')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'overview' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Data Centre</button>
-              <button onClick={() => setActiveTab('data')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'data' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Global Matrix</button>
-              <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'activity' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Activity{activeLeads.length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black">{activeLeads.length > 99 ? '99+' : activeLeads.length}</span>}</button>
-              <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'directory' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>Directory</button>
-              <button onClick={() => setActiveTab('feedback')} className={`flex items-center gap-2 px-4 py-1.5 text-sm font-bold rounded-lg transition-all duration-200 ${activeTab === 'feedback' ? 'bg-white text-indigo-900 shadow-md' : 'text-indigo-200 hover:text-white hover:bg-white/10'}`}>
-                Feedback
-                {unreadFeedbackCount > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px] font-black">{unreadFeedbackCount}</span>}
-              </button>
-            </div>
+            <NavSlider activeTab={activeTab} tabs={[
+              { id: 'overview', label: 'Data Centre' },
+              { id: 'data', label: 'Global Matrix' },
+              { id: 'activity', label: 'Activity', badge: activeLeads.length > 0 ? (activeLeads.length > 99 ? '99+' : activeLeads.length) : null },
+              { id: 'directory', label: 'Directory' },
+              { id: 'pipeline', label: 'Pipeline' },
+              { id: 'feedback', label: 'Feedback', badge: unreadFeedbackCount > 0 ? unreadFeedbackCount : null },
+            ]} onSelect={setActiveTab} />
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => setActiveTab('activity')} className="relative p-2 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
+            <button onClick={() => setActiveTab('activity')} className="relative p-2 rounded-sm text-indigo-300 hover:text-white hover:bg-white/10 transition-all duration-150">
               <svg className={`w-5 h-5 ${activeLeads.length > 0 ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               {activeLeads.length > 0 && <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-black shadow-lg">{activeLeads.length > 99 ? '9+' : activeLeads.length}</span>}
             </button>
@@ -2155,9 +1899,18 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       {renderMobileMenu()}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
-        {activeTab === 'data' && renderDataMatrixTab()}
+        {activeTab === 'data' && (
+          <Suspense fallback={<LazySpinner label="Loading Matrix..." />}>
+            <GlobalMatrixTab agentStats={agentStats} managerStats={managerStats} onRevoke={handleRevokeLeads} onLoadProfile={loadAgentProfile} />
+          </Suspense>
+        )}
         {activeTab === 'activity' && renderActivityTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
+        {activeTab === 'pipeline' && (
+          <Suspense fallback={<LazySpinner label="Loading Pipeline..." />}>
+            <CustomerPipelineAdminPage userEmail={userEmail} userRole={userRole} agentsList={agentsList} />
+          </Suspense>
+        )}
         {activeTab === 'feedback' && renderFeedbackTab()}
       </main>
       {renderFeedbackModal()}
@@ -2169,7 +1922,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setViewingStaffContact(null)}
           />
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded w-full max-w-sm shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
             {/* Gradient avatar header */}
             {(() => {
               const sc = viewingStaffContact;
@@ -2184,7 +1937,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     >
                       <X className="w-4 h-4" />
                     </button>
-                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-white font-black text-2xl uppercase mx-auto mb-3 shadow-inner">
+                    <div className="w-16 h-16 rounded bg-white/20 flex items-center justify-center text-white font-black text-2xl uppercase mx-auto mb-3 shadow-inner">
                       {sc.email.charAt(0)}
                     </div>
                     {sc.full_name ? (
@@ -2202,8 +1955,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
                   <div className="p-6 space-y-4">
                     {/* Email */}
-                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center flex-shrink-0">
                         <Mail className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div className="min-w-0">
@@ -2213,8 +1966,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     </div>
 
                     {/* Contact Number */}
-                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center flex-shrink-0">
                         <Phone className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -2235,8 +1988,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     </div>
 
                     {/* Manager */}
-                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded border border-slate-100">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center flex-shrink-0">
                         <User className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div className="min-w-0">
@@ -2248,7 +2001,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                     {sc.contact_number && (
                       <a
                         href={`tel:${sc.contact_number}`}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-[0.98]"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded transition-all shadow-md shadow-indigo-200 active:scale-[0.98]"
                       >
                         <Phone className="w-4 h-4" />
                         Call {sc.full_name ? sc.full_name.split(' ')[0] : sc.email.split('@')[0]}
@@ -2259,7 +2012,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                       <button
                         onClick={() => { setViewingStaffContact(null); handleDeleteUser(sc.email); }}
                         disabled={deletingUser === sc.email}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 hover:border-red-300 transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-red-200 text-red-600 font-bold rounded hover:bg-red-50 hover:border-red-300 transition-all active:scale-[0.98] disabled:opacity-50"
                       >
                         <Trash2 className="w-4 h-4" />
                         {deletingUser === sc.email ? 'Deleting...' : 'Delete Account'}

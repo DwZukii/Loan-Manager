@@ -1,3 +1,4 @@
+/* global process */
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -10,7 +11,7 @@ const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SU
 
 async function run() {
   console.log("Migrating database status 'Called (No Answer)' to 'Called'...");
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('leads')
     .update({ status: 'Called' })
     .eq('status', 'Called (No Answer)');

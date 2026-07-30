@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabase';
 import { X, User, Phone, Mail, CheckCircle } from 'lucide-react';
@@ -63,7 +63,7 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded w-full max-w-md shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
 
         {/* Header */}
         <div className="border-b border-gray-100 p-6 bg-slate-50 flex justify-between items-center">
@@ -80,7 +80,7 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-sm hover:bg-slate-100"
           >
             <X className="w-5 h-5" />
           </button>
@@ -104,7 +104,7 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
                   type="email"
                   value={userEmail}
                   readOnly
-                  className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-medium text-slate-500 cursor-not-allowed select-all"
+                  className="w-full p-3 bg-slate-100 border border-slate-200 rounded font-medium text-slate-500 cursor-not-allowed select-all"
                 />
               </div>
 
@@ -119,7 +119,7 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your full name"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow"
                 />
               </div>
 
@@ -135,20 +135,20 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   placeholder="e.g. 601X-XXXXXXX"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow"
                 />
                 <p className="text-xs text-slate-400 mt-1.5">Required — your manager uses this to contact you.</p>
               </div>
 
               {/* Status messages */}
               {saveStatus === 'success' && (
-                <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-bold p-3 rounded-xl">
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-bold p-3 rounded">
                   <CheckCircle className="w-4 h-4 flex-shrink-0" />
                   Profile saved successfully!
                 </div>
               )}
               {isError && (
-                <p className="text-sm font-bold p-3 rounded-xl bg-red-50 text-red-600 border border-red-100">
+                <p className="text-sm font-bold p-3 rounded bg-red-50 text-red-600 border border-red-100">
                   {errorMsg}
                 </p>
               )}
@@ -158,7 +158,7 @@ export default function ProfilePage({ userEmail, userRole, onClose, onSaved }) {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="w-full px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500 active:scale-[0.98]"
+                  className="w-full px-4 py-3 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500 active:scale-[0.98]"
                 >
                   {isSaving ? 'Saving...' : 'Save Profile'}
                 </button>

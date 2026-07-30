@@ -24,3 +24,45 @@ export const formatPhone = (num) => {
   }
   return `+60 ${local}` // fallback — still looks better than raw
 }
+
+/**
+ * parseDobFromIC — Extracts date of birth (YYYY-MM-DD) from the first 6 digits of a Malaysian IC number.
+ *
+ * Example:
+ *  "880212-14-5566" -> "1988-02-12"
+ *  "020510-10-1234" -> "2002-05-10"
+ */
+export const parseDobFromIC = (ic) => {
+  if (!ic) return null
+  const cleaned = String(ic).replace(/\D/g, '')
+  if (cleaned.length < 6) return null
+
+  const yyStr = cleaned.slice(0, 2)
+  const mmStr = cleaned.slice(2, 4)
+  const ddStr = cleaned.slice(4, 6)
+
+  const yy = parseInt(yyStr, 10)
+  const mm = parseInt(mmStr, 10)
+  const dd = parseInt(ddStr, 10)
+
+  if (isNaN(yy) || isNaN(mm) || isNaN(dd)) return null
+  if (mm < 1 || mm > 12) return null
+  if (dd < 1 || dd > 31) return null
+
+  const currentTwoDigitYear = new Date().getFullYear() % 100
+  const fullYear = yy > currentTwoDigitYear ? 1900 + yy : 2000 + yy
+
+  const formattedMonth = String(mm).padStart(2, '0')
+  const formattedDay = String(dd).padStart(2, '0')
+
+  const dateObj = new Date(fullYear, mm - 1, dd)
+  if (
+    dateObj.getFullYear() !== fullYear ||
+    dateObj.getMonth() !== mm - 1 ||
+    dateObj.getDate() !== dd
+  ) {
+    return null
+  }
+
+  return `${fullYear}-${formattedMonth}-${formattedDay}`
+}

@@ -7,7 +7,7 @@ export class ErrorBoundary extends React.Component {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError() {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
@@ -21,7 +21,7 @@ export class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-300">
+          <div className="bg-white p-8 rounded shadow-xl max-w-md w-full text-center border border-slate-100 animate-in zoom-in-95 duration-300">
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-red-500" />
             </div>
@@ -31,7 +31,7 @@ export class ErrorBoundary extends React.Component {
             </p>
             <button
               onClick={() => window.location.reload(true)}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-200"
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-200"
             >
               <RefreshCw className="w-5 h-5" />
               Refresh Application

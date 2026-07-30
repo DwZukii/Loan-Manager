@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabase';
 import { User, KeyRound, LogOut, X, Eye, EyeOff, Bug } from 'lucide-react';
@@ -96,7 +96,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 mt-3 w-60 bg-indigo-950/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl py-2 flex flex-col z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="absolute right-0 mt-3 w-60 bg-indigo-950/98 backdrop-blur-2xl border border-white/10 rounded shadow-2xl py-2 flex flex-col z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="px-5 py-4 border-b border-white/10 mb-2">
               <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">Signed in as</p>
               <p className="text-sm text-white font-bold truncate">{userEmail}</p>
@@ -148,7 +148,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
       {isPasswordModalOpen && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsPasswordModalOpen(false)}></div>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded w-full max-w-md shadow-2xl relative z-10 animate-in slide-in-from-bottom-4 duration-300 border border-gray-100 overflow-hidden">
             <div className="border-b border-gray-100 p-6 bg-slate-50 flex justify-between items-center">
               <h3 className="text-xl font-extrabold text-slate-800">Change Password</h3>
               <button onClick={() => setIsPasswordModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
@@ -163,7 +163,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
                     value={currentPassword} 
                     onChange={(e) => setCurrentPassword(e.target.value)} 
                     placeholder="Enter Current Password" 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
                   />
                   <button 
                     type="button" 
@@ -182,7 +182,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
                     value={newPassword} 
                     onChange={(e) => setNewPassword(e.target.value)} 
                     placeholder="Enter New Password" 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
                   />
                   <button 
                     type="button" 
@@ -201,7 +201,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
                     value={confirmPassword} 
                     onChange={(e) => setConfirmPassword(e.target.value)} 
                     placeholder="Enter New Confirm password" 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none pr-12"
                   />
                   <button 
                     type="button" 
@@ -214,7 +214,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
               </div>
               
               {updateStatus && (
-                <p className={`text-sm font-bold p-3 rounded-xl ${updateStatus.includes('Error') || updateStatus.includes('incorrect') || updateStatus.includes('do not match') || updateStatus.includes('least 6') || updateStatus.includes('fill in') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                <p className={`text-sm font-bold p-3 rounded ${updateStatus.includes('Error') || updateStatus.includes('incorrect') || updateStatus.includes('do not match') || updateStatus.includes('least 6') || updateStatus.includes('fill in') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
                   {updateStatus}
                 </p>
               )}
@@ -223,7 +223,7 @@ export default function UserDropdown({ userEmail, userRole, onLogout, onReportIs
                 <button 
                   onClick={handleUpdatePassword} 
                   disabled={isUpdating} 
-                  className="w-full px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500"
+                  className="w-full px-4 py-3 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm border border-indigo-500"
                 >
                   {isUpdating ? 'Updating...' : 'Update Password'}
                 </button>

@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+﻿import { AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export default function ConfirmModal({ isOpen, message, onConfirm, onCancel }) {
   if (!isOpen) return null;
@@ -7,7 +7,7 @@ export default function ConfirmModal({ isOpen, message, onConfirm, onCancel }) {
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden scale-in-center animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded w-full max-w-md shadow-2xl overflow-hidden scale-in-center animate-in zoom-in-95 duration-200">
         <div className={`p-6 border-b ${isDestructive ? 'bg-red-50 border-red-100' : 'bg-indigo-50 border-indigo-100'}`}>
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isDestructive ? 'bg-red-100/50' : 'bg-indigo-100/50'}`}>
@@ -31,13 +31,13 @@ export default function ConfirmModal({ isOpen, message, onConfirm, onCancel }) {
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl">
           <button 
             onClick={onCancel}
-            className="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+            className="px-5 py-2.5 rounded font-bold text-slate-600 hover:bg-slate-200 transition-colors"
           >
             Cancel
           </button>
           <button 
             onClick={onConfirm}
-            className={`px-6 py-2.5 rounded-xl font-bold text-white shadow-sm transition-all active:scale-95 ${
+            className={`px-6 py-2.5 rounded font-bold text-white shadow-sm transition-all active:scale-95 ${
               isDestructive 
                 ? 'bg-red-600 hover:bg-red-700 shadow-red-200' 
                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
