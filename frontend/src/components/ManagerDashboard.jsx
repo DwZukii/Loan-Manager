@@ -14,6 +14,7 @@ import { useManagerData } from '../hooks/useManagerData'
 import { useConfirm } from '../hooks/useConfirm'
 
 const CustomerPipelinePage = lazy(() => import('./pipeline/CustomerPipelinePage'))
+const CustomerPipelineManagerPage = lazy(() => import('./pipeline/CustomerPipelineManagerPage'))
 
 export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
   const queryClient = useQueryClient();
@@ -1491,6 +1492,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               <p className="font-black text-xs uppercase tracking-wider">Directory</p>
             </button>
 
+            <button onClick={() => { setActiveTab('pipeline'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'pipeline' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
+              <Users className="w-6 h-6" />
+              <p className="font-black text-xs uppercase tracking-wider">Customer Pipeline</p>
+            </button>
+
             <div className="mt-auto pt-6 border-t border-white/10">
               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/30 p-4 rounded font-black text-xs uppercase tracking-widest transition-all">
                 <LogOut className="w-4 h-4" /> Sign Out
@@ -1526,6 +1532,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               { id: 'data', label: 'My Team Matrix' },
               { id: 'activity', label: 'Activity', badge: activeLeads.length > 0 ? (activeLeads.length > 99 ? '99+' : activeLeads.length) : null },
               { id: 'directory', label: 'Directory' },
+              { id: 'pipeline', label: 'Customer Pipeline' },
             ]} onSelect={setActiveTab} />
           </div>
           <div className="flex items-center gap-4">
@@ -1540,6 +1547,11 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       {renderMobileMenu()}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 pb-8">
         {activeTab === 'overview' && renderOverviewTab()}
+        {activeTab === 'pipeline' && (
+          <Suspense fallback={<LazySpinner />}>
+            <CustomerPipelineManagerPage userEmail={userEmail} userRole={userRole} agentsList={myTeamList} />
+          </Suspense>
+        )}
         {activeTab === 'data' && renderDataMatrixTab()}
         {activeTab === 'activity' && renderActivityTab()}
         {activeTab === 'directory' && renderDirectoryTab()}
