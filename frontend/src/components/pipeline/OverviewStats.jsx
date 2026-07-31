@@ -4,7 +4,7 @@ import { Users, Clock, CheckCircle2, Cake, X, Search, Phone, ChevronRight, Chevr
 import { parseDobFromIC, formatPhone } from '../../utils'
 import CustomerDetailsModal from './CustomerDetailsModal'
 
-export function getBirthdayInfo(dobString, icNumber) {
+function getBirthdayInfo(dobString, icNumber) {
   const actualDob = dobString || parseDobFromIC(icNumber)
   if (!actualDob) return null
 
@@ -34,7 +34,8 @@ export function getBirthdayInfo(dobString, icNumber) {
   return null
 }
 
-function StatCard({ icon: Icon, iconBg, iconColor, label, value, sub, onClick, isClickable }) {
+// eslint-disable-next-line no-unused-vars
+function StatCard({ Icon, iconBg, iconColor, label, value, sub, onClick, isClickable }) {
   return (
     <div 
       onClick={onClick}
@@ -296,7 +297,7 @@ export default function OverviewStats({ customers = [], isStaff = false, onStatu
     <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon={Users}
+          Icon={Users}
           iconBg="bg-indigo-100"
           iconColor="text-indigo-700"
           label="Total Customers"
@@ -304,7 +305,7 @@ export default function OverviewStats({ customers = [], isStaff = false, onStatu
           sub={isStaff ? "your pipeline" : "across all agents"}
         />
         <StatCard
-          icon={Clock}
+          Icon={Clock}
           iconBg="bg-blue-100"
           iconColor="text-blue-700"
           label="Active Cases"
@@ -312,7 +313,7 @@ export default function OverviewStats({ customers = [], isStaff = false, onStatu
           sub="awaiting action"
         />
         <StatCard
-          icon={CheckCircle2}
+          Icon={CheckCircle2}
           iconBg="bg-purple-100"
           iconColor="text-purple-700"
           label="Disbursed / Approved"
@@ -320,7 +321,7 @@ export default function OverviewStats({ customers = [], isStaff = false, onStatu
           sub="fully processed"
         />
         <StatCard
-          icon={Cake}
+          Icon={Cake}
           iconBg="bg-rose-100"
           iconColor="text-rose-700"
           label="Birthdays This Week"

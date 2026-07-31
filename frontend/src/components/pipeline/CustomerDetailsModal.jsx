@@ -293,7 +293,7 @@ export default function CustomerDetailsModal({ customer, onClose, onDelete, agen
           last_salary:           form.lastSalary !== '' ? parseFloat(form.lastSalary) : null,
           last_disbursement_date: form.lastDisbursementDate || null,
           last_updated_at:       new Date().toISOString(),
-          ...(isAdmin && form.agentEmail ? { agent_email: form.agentEmail } : {}),
+          ...(isAdmin ? { agent_email: form.agentEmail || null } : {}),
         })
         .eq('id', customer.id)
 

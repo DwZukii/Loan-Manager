@@ -43,7 +43,11 @@ function SearchableAgentSelect({ value, onChange, options }) {
     return options.filter(opt => opt.toLowerCase().includes(q))
   }, [options, search])
 
-  const selectedText = value === 'All' ? `All Agents / Managers (${options.length})` : value
+  const selectedText = value === 'All' 
+    ? `All Agents / Managers (${options.length})` 
+    : value === 'UNASSIGNED'
+      ? '— Unassigned Customers —'
+      : value
 
   return (
     <div ref={containerRef} className="relative w-full sm:w-60">
@@ -95,6 +99,17 @@ function SearchableAgentSelect({ value, onChange, options }) {
             >
               <span>All Agents / Managers ({options.length})</span>
               {value === 'All' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { onChange('UNASSIGNED'); setIsOpen(false); setSearch('') }}
+              className={`w-full text-left px-3 py-2 text-xs rounded-md flex items-center justify-between font-bold transition ${
+                value === 'UNASSIGNED' ? 'bg-amber-50 text-amber-800' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <span>— Unassigned Customers —</span>
+              {value === 'UNASSIGNED' && <Check className="w-3.5 h-3.5 text-amber-600" />}
             </button>
 
             {filteredOptions.length === 0 ? (
@@ -152,9 +167,15 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
         (c.agentEmail  || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
         (c.fullName    || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
         (c.phoneNumber || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
-        (c.icNumber    || '').toLowerCase().includes(agentFilter.toLowerCase())
+        (c.icNumber    || '').toLowerCase().includes(agentFilter.toLowerCase()) ||
+        (agentFilter.toLowerCase() === 'unassigned' && (!c.agentEmail || c.agentEmail === '' || c.agentEmail === 'UNASSIGNED'))
       
-      const matchAgentDropdown = selectedAgent === 'All' || c.agentEmail === selectedAgent
+      const matchAgentDropdown = selectedAgent === 'All'
+        ? true
+        : selectedAgent === 'UNASSIGNED'
+          ? (!c.agentEmail || c.agentEmail === '' || c.agentEmail === 'UNASSIGNED')
+          : c.agentEmail === selectedAgent
+
       const matchStatus = statusFilter === 'All' || c.status === statusFilter
 
       return matchSearchText && matchAgentDropdown && matchStatus

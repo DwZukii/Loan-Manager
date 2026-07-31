@@ -44,13 +44,31 @@ export default function AddCustomerForm({ onAdd, userEmail }) {
     setIsSaving(true)
 
     try {
+      // 0. Check if customer already exists in DB by IC Number or Phone Number
+      const cleanIC = form.icNumber.trim()
+      const cleanPhone = form.phoneNumber.trim()
+
+      const { data: existing, error: checkError } = await supabase
+        .from('customers')
+        .select('id, full_name, ic_number, phone_number, agent_email')
+        .or(`ic_number.eq.${cleanIC},phone_number.eq.${cleanPhone}`)
+        .limit(1)
+
+      if (!checkError && existing && existing.length > 0) {
+        const match = existing[0]
+        const matchType = match.ic_number === cleanIC ? 'IC Number' : 'Phone Number'
+        toast.error(`❌ Customer already exists! (${matchType} matches "${match.full_name}", assigned to ${match.agent_email || 'Unassigned'})`)
+        setIsSaving(false)
+        return
+      }
+
       // 1. Insert customer first to get the UUID
       const { data: newCustomer, error: insertError } = await supabase
         .from('customers')
         .insert([{
           full_name: form.fullName.trim(),
-          ic_number: form.icNumber.trim(),
-          phone_number: form.phoneNumber.trim(),
+          ic_number: cleanIC,
+          phone_number: cleanPhone,
           date_of_birth: form.dateOfBirth,
           last_salary: form.lastSalary ? Number(form.lastSalary) : null,
           last_disbursement_date: form.lastDisbursementDate || null,
