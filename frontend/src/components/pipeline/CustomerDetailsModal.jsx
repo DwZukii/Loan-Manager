@@ -60,7 +60,7 @@ function SearchableAgentCombobox({ value, onChange, agentsList }) {
                 autoFocus
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search agent / manager..."
+                placeholder="Search agent..."
                 className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               {search && (
@@ -90,7 +90,7 @@ function SearchableAgentCombobox({ value, onChange, agentsList }) {
 
             {filteredOptions.length === 0 ? (
               <div className="p-4 text-center text-xs text-gray-400">
-                No matching agent or manager found.
+                No matching agent found.
               </div>
             ) : (
               filteredOptions.map(a => {

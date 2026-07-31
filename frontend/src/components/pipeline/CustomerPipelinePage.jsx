@@ -33,6 +33,7 @@ export default function CustomerPipelinePage({ userEmail }) {
   const queryClient = useQueryClient()
   const { data: customers = [], isLoading, isError } = usePipelineData(userEmail)
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
 
   // ── Update a customer's status ──────────────────────────────────────────────
@@ -79,14 +80,18 @@ export default function CustomerPipelinePage({ userEmail }) {
     return true
   }
 
-  // ── Client-side search filter ───────────────────────────────────────────────
+  // ── Client-side search + status filter ─────────────────────────────────────────
   const q = searchQuery.toLowerCase().trim()
-  const filtered = q
-    ? customers.filter(c =>
-        c.fullName.toLowerCase().includes(q) ||
-        c.icNumber.replace(/-/g, '').includes(q.replace(/-/g, ''))
-      )
-    : customers
+  const filtered = customers.filter(c => {
+    const matchesSearch = !q || (
+      c.fullName.toLowerCase().includes(q) ||
+      c.icNumber.replace(/-/g, '').includes(q.replace(/-/g, ''))
+    )
+
+    const matchesStatus = statusFilter === 'All' || c.status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -137,25 +142,43 @@ export default function CustomerPipelinePage({ userEmail }) {
 
       {/* ── Section B: Customer list ─────────────────────────────────────────── */}
       <div>
-        {/* List header + search */}
+        {/* List header + search & status filter */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-bold text-gray-900">
               Customer List
               {!isLoading && (
-                <span className="ml-2 text-sm font-medium text-gray-400">({customers.length})</span>
+                <span className="ml-2 text-sm font-medium text-gray-400">({filtered.length})</span>
               )}
             </h2>
           </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name or IC..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by name or IC..."
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              />
+            </div>
+
+            {/* Status Filter Dropdown */}
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="w-full sm:w-44 p-2 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+            >
+              <option value="All">All Statuses</option>
+              <option value="New">New</option>
+              <option value="Process">Process</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Disbursed">Disbursed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
           </div>
         </div>
 

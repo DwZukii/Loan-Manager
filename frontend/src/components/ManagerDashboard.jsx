@@ -1494,7 +1494,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
             <button onClick={() => { setActiveTab('pipeline'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-4 p-4 rounded text-left transition-all ${activeTab === 'pipeline' ? 'bg-white text-indigo-900 shadow-xl' : 'text-indigo-100 hover:bg-white/5'}`}>
               <Users className="w-6 h-6" />
-              <p className="font-black text-xs uppercase tracking-wider">Customer Pipeline</p>
+              <p className="font-black text-xs uppercase tracking-wider">Pipeline</p>
             </button>
 
             <div className="mt-auto pt-6 border-t border-white/10">
