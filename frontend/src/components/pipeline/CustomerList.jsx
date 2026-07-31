@@ -17,34 +17,36 @@ function CustomerRow({ customer, onStatusChange, onClick }) {
   return (
     <div 
       onClick={() => onClick(customer)}
-      className="bg-white border border-gray-100 rounded-md shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:border-indigo-300 hover:shadow-md transition cursor-pointer group relative"
+      className="bg-white border border-gray-100 rounded-md shadow-sm p-3.5 sm:p-5 flex items-center justify-between gap-3 hover:border-indigo-300 hover:shadow-md transition cursor-pointer group relative"
     >
       {/* Expand icon on hover */}
-      <div className="absolute top-3 right-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition sm:hidden md:block pointer-events-none">
+      <div className="absolute top-3 right-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition hidden md:block pointer-events-none">
         <Maximize2 className="w-4 h-4" />
       </div>
 
       {/* Left: Name + IC */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-sm font-bold text-gray-900 truncate">{customer.fullName}</h3>
+      <div className="flex-1 min-w-0 pr-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 truncate">{customer.fullName}</h3>
           {customer.payslipFileName && (
-            <span className="flex items-center gap-0.5 text-indigo-500" title={customer.payslipFileName}>
+            <span className="flex items-center gap-0.5 text-indigo-500 flex-shrink-0" title={customer.payslipFileName}>
               <Paperclip className="w-3 h-3" />
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 font-mono mt-0.5">{customer.icNumber}{customer.phoneNumber ? ` • ${customer.phoneNumber}` : ''}</p>
+        <p className="text-[11px] sm:text-xs text-gray-500 font-mono mt-0.5 truncate">
+          {customer.icNumber}{customer.phoneNumber ? ` • ${customer.phoneNumber}` : ''}
+        </p>
       </div>
 
-      {/* Right: Status dropdown */}
-      <div className="sm:w-36 flex-shrink-0">
-        <div className={`relative flex items-center border rounded-sm ${meta.bg} ${meta.border}`}>
+      {/* Right: Status badge dropdown */}
+      <div className="flex-shrink-0">
+        <div className={`relative flex items-center border rounded-md px-2.5 py-1 ${meta.bg} ${meta.border} transition-all`}>
           <select
             onClick={(e) => e.stopPropagation()}
             value={customer.status || 'New'}
             onChange={e => onStatusChange(customer.id, e.target.value)}
-            className={`w-full appearance-none bg-transparent text-xs font-bold py-1.5 pl-2.5 pr-7 focus:outline-none cursor-pointer ${meta.text}`}
+            className={`appearance-none bg-transparent text-[11px] sm:text-xs font-bold pr-4 focus:outline-none cursor-pointer ${meta.text}`}
           >
             <option value="New">New</option>
             <option value="Process">Process</option>
@@ -53,7 +55,7 @@ function CustomerRow({ customer, onStatusChange, onClick }) {
             <option value="Disbursed">Disbursed</option>
             <option value="Rejected">Rejected</option>
           </select>
-          <ChevronDown className={`absolute right-1.5 w-3 h-3 pointer-events-none ${meta.text}`} />
+          <ChevronDown className={`absolute right-2 w-3 h-3 pointer-events-none ${meta.text}`} />
         </div>
       </div>
     </div>

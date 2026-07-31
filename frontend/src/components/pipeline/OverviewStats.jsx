@@ -39,24 +39,24 @@ function StatCard({ Icon, iconBg, iconColor, label, value, sub, onClick, isClick
   return (
     <div 
       onClick={onClick}
-      className={`bg-white border rounded-md p-5 flex items-start gap-4 transition ${
+      className={`bg-white border rounded-md p-3.5 sm:p-5 flex items-center sm:items-start gap-3 sm:gap-4 transition ${
         isClickable 
           ? 'border-rose-200 hover:border-rose-400 hover:shadow-md cursor-pointer group relative overflow-hidden' 
           : 'border-gray-100 shadow-sm'
       }`}
     >
       {isClickable && (
-        <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-bl">
-          Click to view
+        <div className="absolute top-0 right-0 bg-rose-500 text-white text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-bl">
+          View
         </div>
       )}
-      <span className={`${iconBg} ${iconColor} rounded-sm w-10 h-10 flex items-center justify-center flex-shrink-0 ${isClickable ? 'group-hover:scale-110 transition-transform' : ''}`}>
-        <Icon className="w-5 h-5" />
+      <span className={`${iconBg} ${iconColor} rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0 ${isClickable ? 'group-hover:scale-110 transition-transform' : ''}`}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
       </span>
-      <div>
-        <p className="text-2xl font-black text-gray-900">{value}</p>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">{value}</p>
+        <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider mt-0.5 truncate">{label}</p>
+        {sub && <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 truncate hidden sm:block">{sub}</p>}
       </div>
     </div>
   )

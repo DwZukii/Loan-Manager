@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { ClipboardList, ChevronDown, ChevronLeft, ChevronRight, Search, Check, X } from 'lucide-react'
+import { ClipboardList, ChevronDown, ChevronLeft, ChevronRight, Search, Check, X, Plus } from 'lucide-react'
 import CustomerDetailsModal from './CustomerDetailsModal'
 
 const STATUS_META = {
@@ -141,7 +141,7 @@ function SearchableAgentSelect({ value, onChange, options }) {
   )
 }
 
-export default function AllCasesTable({ customers, onStatusChange, onDelete, agentsList = [], userRole }) {
+export default function AllCasesTable({ customers, onStatusChange, onDelete, agentsList = [], userRole, onNewSubmissionClick, showForm }) {
   const [agentFilter,   setAgentFilter]   = useState('')
   const [selectedAgent, setSelectedAgent] = useState('All')
   const [statusFilter,  setStatusFilter]  = useState('All')
@@ -193,15 +193,31 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
   return (
     <div className="bg-white border border-gray-100 rounded-md shadow-md p-6 sm:p-8">
       {/* Header */}
-      <h2 className="text-xl font-bold text-indigo-900 mb-6 flex items-center gap-3">
-        <span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0">
-          <ClipboardList className="w-5 h-5" />
-        </span>
-        All Cases
-        <span className="ml-1 bg-indigo-100 text-indigo-700 text-xs font-black px-2.5 py-1 rounded-full border border-indigo-200">
-          {customers.length}
-        </span>
-      </h2>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <h2 className="text-xl font-bold text-indigo-900 flex items-center gap-3">
+          <span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0">
+            <ClipboardList className="w-5 h-5" />
+          </span>
+          All Cases
+        </h2>
+
+        {onNewSubmissionClick && (
+          <button
+            onClick={onNewSubmissionClick}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
+              showForm
+                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }`}
+          >
+            {showForm ? (
+              <><X className="w-4 h-4" /> Cancel</>
+            ) : (
+              <><Plus className="w-4 h-4" /> New Submission</>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Filters row */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">

@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Search, Plus, X, Loader2, Users } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '../../supabase'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
@@ -19,7 +19,6 @@ import AllCasesTable from './AllCasesTable'
 export default function CustomerPipelineManagerPage({ userEmail, userRole, agentsList = [] }) {
   const queryClient = useQueryClient()
   const { data: customers = [], isLoading, isError } = useManagerPipelineData(userEmail)
-  const [searchQuery, setSearchQuery] = useState('')
   const [showForm, setShowForm] = useState(false)
 
   // ── Status change ──────────────────────────────────────────────────────────
@@ -62,16 +61,6 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
     queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
   }
 
-  // ── Filtered list ───────────────────────────────────────────────────────────
-  const q = searchQuery.trim().toLowerCase()
-  const filtered = q
-    ? customers.filter(c =>
-        c.fullName?.toLowerCase().includes(q) ||
-        c.icNumber?.toLowerCase().includes(q) ||
-        c.agentEmail?.toLowerCase().includes(q)
-      )
-    : customers
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -84,32 +73,6 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
         agentsList={agentsList}
       />
 
-      {/* ── Page header + New Submission button ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4" />
-            </span>
-            Team Cases
-          </h1>
-        </div>
-        <button
-          onClick={() => setShowForm(prev => !prev)}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
-            showForm
-              ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          }`}
-        >
-          {showForm ? (
-            <><X className="w-4 h-4" /> Cancel</>
-          ) : (
-            <><Plus className="w-4 h-4" /> New Submission</>
-          )}
-        </button>
-      </div>
-
       {/* ── Collapsible Add Customer form ────────────────────────────────────── */}
       {showForm && (
         <AddCustomerForm
@@ -117,18 +80,6 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
           userEmail={userEmail}
         />
       )}
-
-      {/* ── Search bar ───────────────────────────────────────────────────────── */}
-      <div className="relative w-full sm:w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search by name, IC or agent..."
-          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-        />
-      </div>
 
       {/* ── Loading ──────────────────────────────────────────────────────────── */}
       {isLoading && (
@@ -149,11 +100,13 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
       {/* ── All Cases Table ───────────────────────────────────────────────────── */}
       {!isLoading && !isError && (
         <AllCasesTable
-          customers={filtered}
+          customers={customers}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteCustomer}
           agentsList={agentsList}
           userRole={userRole}
+          onNewSubmissionClick={() => setShowForm(prev => !prev)}
+          showForm={showForm}
         />
       )}
     </div>

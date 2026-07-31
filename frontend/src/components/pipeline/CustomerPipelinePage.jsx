@@ -104,34 +104,6 @@ export default function CustomerPipelinePage({ userEmail }) {
         onDelete={handleDeleteCustomer}
       />
 
-      {/* ── Page header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4" />
-            </span>
-            Customer Pipeline
-          </h1>
-        </div>
-
-        {/* Toggle form button */}
-        <button
-          onClick={() => setShowForm(prev => !prev)}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
-            showForm
-              ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          }`}
-        >
-          {showForm ? (
-            <><X className="w-4 h-4" /> Cancel</>
-          ) : (
-            <><Plus className="w-4 h-4" /> Add Submission</>
-          )}
-        </button>
-      </div>
-
       {/* ── Section A: Collapsible Add Customer form ─────────────────────────── */}
       {showForm && (
         <AddCustomerForm
@@ -141,27 +113,46 @@ export default function CustomerPipelinePage({ userEmail }) {
       )}
 
       {/* ── Section B: Customer list ─────────────────────────────────────────── */}
-      <div>
-        {/* List header + search & status filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">
+      <div className="space-y-4">
+        {/* List header + Add Submission + search & status filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Left: Title + Mobile Add Submission button */}
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span className="bg-indigo-100 text-indigo-700 rounded-md w-7 h-7 flex items-center justify-center flex-shrink-0">
+                <Users className="w-3.5 h-3.5" />
+              </span>
               Customer List
-              {!isLoading && (
-                <span className="ml-2 text-sm font-medium text-gray-400">({filtered.length})</span>
-              )}
             </h2>
+
+            {/* Mobile Only: + Add Submission button */}
+            <button
+              onClick={() => setShowForm(prev => !prev)}
+              className={`sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition shadow-sm flex-shrink-0 ${
+                showForm
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              {showForm ? (
+                <><X className="w-3.5 h-3.5" /> Cancel</>
+              ) : (
+                <><Plus className="w-3.5 h-3.5" /> Add Submission</>
+              )}
+            </button>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+
+          {/* Right: Search, Filter + Desktop Add Submission button */}
+          <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
             {/* Search Bar */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by name or IC..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                placeholder="Search name or IC..."
+                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-md bg-white text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition"
               />
             </div>
 
@@ -169,7 +160,7 @@ export default function CustomerPipelinePage({ userEmail }) {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="w-full sm:w-44 p-2 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+              className="w-32 sm:w-44 p-2 border border-gray-200 rounded-md bg-white text-xs sm:text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition cursor-pointer flex-shrink-0"
             >
               <option value="All">All Statuses</option>
               <option value="New">New</option>
@@ -179,6 +170,22 @@ export default function CustomerPipelinePage({ userEmail }) {
               <option value="Disbursed">Disbursed</option>
               <option value="Rejected">Rejected</option>
             </select>
+
+            {/* Desktop Only: + Add Submission button */}
+            <button
+              onClick={() => setShowForm(prev => !prev)}
+              className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
+                showForm
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              {showForm ? (
+                <><X className="w-3.5 h-3.5" /> Cancel</>
+              ) : (
+                <><Plus className="w-3.5 h-3.5" /> Add Submission</>
+              )}
+            </button>
           </div>
         </div>
 
