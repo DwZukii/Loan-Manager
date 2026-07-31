@@ -1,11 +1,122 @@
-import { X, Calendar, User, FileText, CreditCard, Clock, Trash2, Paperclip, ExternalLink, Pencil, Save, XCircle, UploadCloud, Plus, Bell, Phone } from 'lucide-react'
+import { X, Calendar, User, FileText, CreditCard, Clock, Trash2, Paperclip, ExternalLink, Pencil, Save, XCircle, UploadCloud, Plus, Bell, Phone, ChevronDown, Search, Check } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../../supabase'
 import { useQueryClient } from '@tanstack/react-query'
 import { useConfirm } from '../../hooks/useConfirm'
 import { parseDobFromIC, formatPhone } from '../../utils'
+
+function SearchableAgentCombobox({ value, onChange, agentsList }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedAgentObj = (agentsList || []).find(a => a.email === value)
+  const selectedText = value 
+    ? (selectedAgentObj?.full_name ? `${selectedAgentObj.full_name} (${value})` : value)
+    : '— Unassigned —'
+
+  const filteredOptions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return agentsList || []
+    return (agentsList || []).filter(a => 
+      a.email?.toLowerCase().includes(q) || 
+      a.full_name?.toLowerCase().includes(q)
+    )
+  }, [agentsList, search])
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm font-medium text-gray-900 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white flex items-center justify-between gap-2 text-left"
+      >
+        <span className="truncate flex-1 font-medium">
+          {selectedText}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          {/* Search Input */}
+          <div className="p-2 border-b border-gray-100 bg-gray-50/80">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search agent / manager..."
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => { onChange(''); setIsOpen(false); setSearch('') }}
+              className={`w-full text-left px-3 py-2 text-xs rounded-md flex items-center justify-between font-bold transition ${
+                !value ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <span>— Unassigned —</span>
+              {!value && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+            </button>
+
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-xs text-gray-400">
+                No matching agent or manager found.
+              </div>
+            ) : (
+              filteredOptions.map(a => {
+                const isSelected = value === a.email
+                const label = a.full_name ? `${a.full_name} (${a.email})` : a.email
+                return (
+                  <button
+                    key={a.email}
+                    type="button"
+                    onClick={() => { onChange(a.email); setIsOpen(false); setSearch('') }}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-md flex items-center justify-between font-medium transition ${
+                      isSelected ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{label}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function formatDate(dateString) {
   if (!dateString) return '—'
@@ -345,16 +456,11 @@ export default function CustomerDetailsModal({ customer, onClose, onDelete, agen
                   {isAdmin && agentsList.length > 0 && (
                     <div className="sm:col-span-2">
                       <FieldLabel icon={User} label="Assigned Agent" />
-                      <select
+                      <SearchableAgentCombobox
                         value={form.agentEmail}
-                        onChange={e => setField('agentEmail')(e.target.value)}
-                        className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
-                      >
-                        <option value="">— Unassigned —</option>
-                        {agentsList.map(a => (
-                          <option key={a.email} value={a.email}>{a.full_name ? `${a.full_name} (${a.email})` : a.email}</option>
-                        ))}
-                      </select>
+                        onChange={setField('agentEmail')}
+                        agentsList={agentsList}
+                      />
                     </div>
                   )}
                 </>

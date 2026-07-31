@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { ClipboardList, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { ClipboardList, ChevronDown, ChevronLeft, ChevronRight, Search, Check, X } from 'lucide-react'
 import CustomerDetailsModal from './CustomerDetailsModal'
 
 const STATUS_META = {
@@ -19,6 +19,110 @@ function StatusBadge({ status }) {
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black ${meta.bg} ${meta.text} border ${meta.border}`}>
       {meta.label}
     </span>
+  )
+}
+
+function SearchableAgentSelect({ value, onChange, options }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredOptions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return options
+    return options.filter(opt => opt.toLowerCase().includes(q))
+  }, [options, search])
+
+  const selectedText = value === 'All' ? `All Agents / Managers (${options.length})` : value
+
+  return (
+    <div ref={containerRef} className="relative w-full sm:w-60">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-3 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition flex items-center justify-between gap-2 text-left"
+      >
+        <span className="truncate flex-1 font-semibold">
+          {selectedText}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          {/* Search Bar */}
+          <div className="p-2 border-b border-gray-100 bg-gray-50/80">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search agent / manager..."
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Options List */}
+          <div className="max-h-60 overflow-y-auto p-1 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => { onChange('All'); setIsOpen(false); setSearch('') }}
+              className={`w-full text-left px-3 py-2 text-xs rounded-md flex items-center justify-between font-bold transition ${
+                value === 'All' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <span>All Agents / Managers ({options.length})</span>
+              {value === 'All' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+            </button>
+
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-xs text-gray-400">
+                No matching agent or manager found.
+              </div>
+            ) : (
+              filteredOptions.map(email => {
+                const isSelected = value === email
+                return (
+                  <button
+                    key={email}
+                    type="button"
+                    onClick={() => { onChange(email); setIsOpen(false); setSearch('') }}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-md flex items-center justify-between font-medium transition ${
+                      isSelected ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{email}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -88,20 +192,12 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
           className="flex-1 p-3 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
         />
 
-        {/* Agent Filter Dropdown */}
-        <div className="relative">
-          <select
-            value={selectedAgent}
-            onChange={e => { setSelectedAgent(e.target.value); setCurrentPage(1) }}
-            className="appearance-none w-full sm:w-56 p-3 pr-9 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
-          >
-            <option value="All">All Agents ({uniqueAgents.length})</option>
-            {uniqueAgents.map(email => (
-              <option key={email} value={email}>{email}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-        </div>
+        {/* Custom Searchable Agent / Manager Dropdown */}
+        <SearchableAgentSelect
+          value={selectedAgent}
+          onChange={val => { setSelectedAgent(val); setCurrentPage(1) }}
+          options={uniqueAgents}
+        />
 
         {/* Status Filter Dropdown */}
         <div className="relative">
