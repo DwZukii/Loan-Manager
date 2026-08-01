@@ -659,9 +659,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         
-        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
-            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> 
+        <div className="bg-white p-4 sm:p-8 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
+          <h2 className="text-xl sm:text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
+            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> 
             Clean & Add
           </h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
@@ -676,7 +676,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
             {/* ── Extract Mode Picker ── */}
             <div>
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Extract Mode</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 
                 {/* Mode A — default */}
                 <button
@@ -737,9 +737,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
             {/* ── File Upload ── */}
             <div>
-              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">
-                Upload Spreadsheets
-                <span className="ml-1.5 text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider flex items-center justify-between">
+                <span>Upload Spreadsheets</span>
+                <span className="text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
               </label>
               <input id="file-upload-input" type="file" multiple accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
               {/* ── Selected file chips ── */}
@@ -757,11 +757,6 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-indigo-600/80 mt-2.5 font-medium">
-                {extractMode === 'all'
-                  ? 'Add up to 10 files. Auto-scans all cells, fixes country codes, and removes duplicates across all files.'
-                  : 'Add up to 10 files. Scans row-by-row — each row must have both a valid Malaysian IC and a phone number.'}
-              </p>
             </div>
             <div className="mt-auto pt-4">
               {filesNeedAnalysis ? (
@@ -838,9 +833,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
-            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> 
+        <div className="bg-white p-4 sm:p-8 rounded shadow-md border border-gray-100 relative flex flex-col h-full">
+          <h2 className="text-xl sm:text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10">
+            <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> 
             Distribute to Team
           </h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
@@ -849,7 +844,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set B Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
               <div className="flex justify-between items-center p-3.5 font-bold bg-indigo-50/50"><span>Set C Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Pull From</label>
                 <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
@@ -1059,15 +1054,15 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       {/* Page Header */}
-      <div style={{background: '#1e1b4b'}} className="rounded p-8 shadow-2xl overflow-hidden relative">
+      <div style={{background: '#1e1b4b'}} className="rounded p-4 sm:p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}}></div>
         <div className="relative z-10">
-          <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
-            <span className="bg-white/15 rounded p-2"><BarChart3 className="w-6 h-6 text-white" /></span>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
+            <span className="bg-white/15 rounded p-2 flex-shrink-0"><BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" /></span>
             My Team Matrix
           </h2>
-          <p className="text-indigo-300 text-sm font-medium mb-6">Live performance snapshot for your team.</p>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <p className="text-indigo-300 text-xs sm:text-sm font-medium mb-6">Live performance snapshot for your team.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
             {[
               { label: 'Total Assigned', value: totalLeads, color: 'from-blue-400/20 to-indigo-400/20', border: 'border-blue-400/30', text: 'text-blue-200' },
               { label: 'Pending', value: totalPending, color: 'from-gray-400/20 to-slate-400/20', border: 'border-gray-400/30', text: 'text-gray-300' },
@@ -1075,9 +1070,9 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
               { label: "WA'd", value: totalWhatsapp, color: 'from-purple-400/20 to-fuchsia-400/20', border: 'border-purple-400/30', text: 'text-purple-300' },
               { label: "SMS'd", value: totalSms, color: 'from-yellow-400/20 to-amber-400/20', border: 'border-yellow-400/30', text: 'text-yellow-300' },
             ].map(s => (
-              <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded p-4`}>
-                <p className={`text-xs font-black uppercase tracking-widest ${s.text} mb-1`}>{s.label}</p>
-                <p className="text-3xl font-black text-white">{s.value}</p>
+              <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded p-3 sm:p-4`}>
+                <p className={`text-[10px] sm:text-xs font-black uppercase tracking-widest ${s.text} mb-1 truncate`}>{s.label}</p>
+                <p className="text-xl sm:text-3xl font-black text-white">{s.value}</p>
               </div>
             ))}
           </div>
@@ -1087,14 +1082,14 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+            <span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><BarChart3 className="w-5 h-5" /></span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Team Performance Tracker</h3>
               <p className="text-xs text-gray-400">Called · WhatsApp · SMS per agent</p>
             </div>
           </div>
-          <div className="p-6 h-72">
+          <div className="p-4 sm:p-6 h-64 sm:h-72">
             {agentStats.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No agent data available</p></div>
             ) : (
@@ -1115,14 +1110,14 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
         </div>
 
         <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-violet-100 rounded-sm flex items-center justify-center text-base">🥧</span>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+            <span className="w-8 h-8 bg-violet-100 rounded-sm flex items-center justify-center text-base flex-shrink-0">🥧</span>
             <div>
               <h3 className="text-sm font-extrabold text-gray-900">Team Pipeline Health</h3>
               <p className="text-xs text-gray-400">Lead status breakdown for your team</p>
             </div>
           </div>
-          <div className="p-6 h-72 flex items-center justify-center">
+          <div className="p-4 sm:p-6 h-64 sm:h-72 flex items-center justify-center">
             {calculateGlobalPipeline().length === 0 ? (
               <div className="flex flex-col items-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">No pipeline data</p></div>
             ) : (
@@ -1142,51 +1137,76 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
       {/* Staff Table */}
       <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
+        <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><Users className="w-5 h-5" /></span>
           <div>
-            <h3 className="text-lg font-extrabold text-gray-900">My Team Data Matrix</h3>
+            <h3 className="text-base sm:text-lg font-extrabold text-gray-900">My Team Data Matrix</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">{agentStats.length} staff member{agentStats.length !== 1 ? 's' : ''} on your team</p>
           </div>
         </div>
         {agentStats.length === 0 ? (
           <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No leads assigned to your team yet.</p></div>
         ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr style={{background: '#1e1b4b'}}>
-                  <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Assigned</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest">Pending</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-blue-300 uppercase tracking-widest">Called</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-purple-300 uppercase tracking-widest">WA'd</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-yellow-300 uppercase tracking-widest">SMS'd</th>
-                  <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agentStats.map((agent, i) => (
-                  <tr key={i} className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors group">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
-                        <button onClick={() => loadAgentProfile(agent)} className="text-sm font-bold text-gray-800 hover:text-indigo-600 transition-colors">{agent.email}</button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5"><span className="text-sm font-black text-gray-900">{agent.total}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-sm font-bold text-xs border border-gray-200">{agent.pending}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-blue-100">{agent.called}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-sm font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-sm text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
-                    </td>
+          <>
+            {/* 📱 Mobile Card View (< sm) */}
+            <div className="sm:hidden p-4 space-y-3 divide-y divide-gray-100">
+              {agentStats.map((agent, i) => (
+                <div key={i} className="pt-3 first:pt-0 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
+                      <button onClick={() => loadAgentProfile(agent)} className="text-xs font-bold text-gray-800 hover:text-indigo-600 transition-colors truncate text-left">{agent.email}</button>
+                    </div>
+                    <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border border-gray-200 text-gray-600 font-bold px-2.5 py-1 rounded-sm text-[10px] hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all flex-shrink-0">Revoke</button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-black">Total: {agent.total}</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold">Pending: {agent.pending}</span>
+                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">Called: {agent.called}</span>
+                    <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-bold">WA: {agent.whatsapp}</span>
+                    <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded font-black">SMS: {agent.thinking}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 🖥️ Desktop Table View (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[600px]">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr style={{background: '#1e1b4b'}}>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Staff</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest">Assigned</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-widest">Pending</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-blue-300 uppercase tracking-widest">Called</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-purple-300 uppercase tracking-widest">WA'd</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-yellow-300 uppercase tracking-widest">SMS'd</th>
+                    <th className="px-5 py-3.5 text-xs font-black text-indigo-200 uppercase tracking-widest text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {agentStats.map((agent, i) => (
+                    <tr key={i} className="border-b border-gray-50 hover:bg-indigo-50/30 transition-colors group">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
+                          <button onClick={() => loadAgentProfile(agent)} className="text-sm font-bold text-gray-800 hover:text-indigo-600 transition-colors">{agent.email}</button>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5"><span className="text-sm font-black text-gray-900">{agent.total}</span></td>
+                      <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-sm font-bold text-xs border border-gray-200">{agent.pending}</span></td>
+                      <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-blue-100">{agent.called}</span></td>
+                      <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
+                      <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-sm font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button onClick={() => handleRevokeLeads(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-sm text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -1200,14 +1220,14 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Provision Staff Account */}
         <div className="bg-white rounded shadow-sm overflow-hidden border border-gray-100">
-          <div style={{background: '#1e1b4b'}} className="px-8 py-6 flex items-center gap-4">
-            <span className="bg-white/15 rounded p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
+          <div style={{background: '#1e1b4b'}} className="px-4 sm:px-8 py-4 sm:py-6 flex items-center gap-4">
+            <span className="bg-white/15 rounded p-2.5 flex-shrink-0"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
-              <h3 className="text-xl font-extrabold text-white">Provision Staff Account</h3>
-              <p className="text-indigo-300 text-sm mt-0.5 font-medium">New staff created here are automatically assigned to your team.</p>
+              <h3 className="text-lg sm:text-xl font-extrabold text-white">Provision Staff Account</h3>
+              <p className="text-indigo-300 text-xs sm:text-sm mt-0.5 font-medium">New staff created here are automatically assigned to your team.</p>
             </div>
           </div>
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Email Address</label>
@@ -1218,7 +1238,7 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 <div className="relative"><input type={showNewAccPassword ? "text" : "password"} placeholder="Min. 6 characters" value={newAccPassword} onChange={(e) => setNewAccPassword(e.target.value)} className="w-full p-3 pr-12 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-gray-50 font-medium" /><button type="button" onClick={() => setShowNewAccPassword(!showNewAccPassword)} className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-indigo-600 transition-colors">{showNewAccPassword ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}</button></div>
               </div>
               <div className="flex items-end">
-                <div className="w-full p-4 bg-indigo-50 border-2 border-indigo-100 rounded text-sm text-indigo-700 font-semibold text-center">
+                <div className="w-full p-4 bg-indigo-50 border-2 border-indigo-100 rounded text-xs sm:text-sm text-indigo-700 font-semibold text-center">
                   👥 Staff auto-assigns to your team on creation.
                 </div>
               </div>
@@ -1232,17 +1252,17 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
 
         {/* My Team */}
         <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
-          <div style={{background: '#1e1b4b'}} className="px-8 py-5 flex items-center justify-between">
+          <div style={{background: '#1e1b4b'}} className="px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-extrabold text-white flex items-center gap-2"><Users className="w-5 h-5" /> My Team</h3>
-              <p className="text-indigo-300 text-xs font-medium mt-0.5">{myTeamList.length} active staff member{myTeamList.length !== 1 ? 's' : ''} under your command</p>
+              <h3 className="text-base sm:text-lg font-extrabold text-white flex items-center gap-2"><Users className="w-5 h-5" /> My Team</h3>
+              <p className="text-indigo-300 text-xs font-medium mt-0.5">{myTeamList.length} active staff member{myTeamList.length !== 1 ? 's' : ''}</p>
             </div>
-            <div className="bg-white/15 rounded px-4 py-2 text-center">
-              <p className="text-2xl font-black text-white">{myTeamList.length}</p>
-              <p className="text-indigo-300 text-xs font-bold uppercase tracking-wider">Staff</p>
+            <div className="bg-white/15 rounded px-3 py-1.5 sm:px-4 sm:py-2 text-center">
+              <p className="text-xl sm:text-2xl font-black text-white">{myTeamList.length}</p>
+              <p className="text-indigo-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">Staff</p>
             </div>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {myTeamList.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-5xl mb-3">👤</div>

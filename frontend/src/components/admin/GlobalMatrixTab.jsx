@@ -29,24 +29,24 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
 
   return (
     <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500"><Users className="w-5 h-5" /></span>
+          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><Users className="w-5 h-5" /></span>
           <div>
-            <h3 className="text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
+            <h3 className="text-base sm:text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
               {filtered.length} of {agentStats.length} agents tracked across all teams
             </p>
           </div>
         </div>
-        <div className="relative flex-shrink-0">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="relative w-full sm:w-56 flex-shrink-0">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search staff..."
             value={search}
             onChange={handleSearchChange}
-            className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+            className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
           />
           {search && (
             <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -64,7 +64,30 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          {/* 📱 Mobile Card View (< sm) */}
+          <div className="sm:hidden p-4 space-y-3 divide-y divide-gray-100">
+            {paginated.map((agent, i) => (
+              <div key={i} className="pt-3 first:pt-0 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
+                    <button onClick={() => onLoadProfile(agent)} className="text-xs font-bold text-gray-800 hover:text-indigo-600 transition-colors truncate text-left">{agent.email}</button>
+                  </div>
+                  <button onClick={() => onRevoke(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border border-gray-200 text-gray-600 font-bold px-2.5 py-1 rounded-sm text-[10px] hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all flex-shrink-0">Revoke</button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-black">Total: {agent.total}</span>
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold">Pending: {agent.pending}</span>
+                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">Called: {agent.called}</span>
+                  <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-bold">WA: {agent.whatsapp}</span>
+                  <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded font-black">SMS: {agent.thinking}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 🖥️ Desktop Table View (>= sm) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr style={{background: '#1e1b4b'}}>
@@ -102,8 +125,8 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
 
           {/* 10-Item Pagination Bar */}
           {totalPages > 1 && (
-            <div className="bg-gray-50 border-t border-gray-100 p-3 px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p className="text-xs text-gray-500 font-medium">
+            <div className="bg-gray-50 border-t border-gray-100 p-3 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs text-gray-500 font-medium text-center sm:text-left">
                 Showing <span className="font-bold text-gray-900">{(validPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-gray-900">{Math.min(validPage * ITEMS_PER_PAGE, filtered.length)}</span> of <span className="font-bold text-gray-900">{filtered.length}</span> staff
               </p>
               <div className="flex items-center gap-1.5">
@@ -160,24 +183,24 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
 
   return (
     <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span>
+          <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><User className="w-5 h-5" /></span>
           <div>
-            <h3 className="text-lg font-extrabold text-gray-900">Manager Pool Overview</h3>
+            <h3 className="text-base sm:text-lg font-extrabold text-gray-900">Manager Pool Overview</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
               {filtered.length} of {managerStats.length} managers
             </p>
           </div>
         </div>
-        <div className="relative flex-shrink-0">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="relative w-full sm:w-56 flex-shrink-0">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search managers..."
             value={search}
             onChange={handleSearchChange}
-            className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+            className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
           />
           {search && (
             <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -195,7 +218,24 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
+          {/* 📱 Mobile Card View (< sm) */}
+          <div className="sm:hidden p-4 space-y-3 divide-y divide-gray-100">
+            {paginated.map((manager, i) => (
+              <div key={i} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-700 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{manager.email.charAt(0)}</div>
+                  <span className="text-xs font-bold text-gray-800 truncate">{manager.email}</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-black border border-indigo-100">{manager.total_agents} Staff</span>
+                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-black border border-blue-100">{manager.unassigned_pool} Leads</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 🖥️ Desktop Table View (>= sm) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr style={{background: '#1e1b4b'}}>
@@ -225,8 +265,8 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
 
           {/* 10-Item Pagination Bar */}
           {totalPages > 1 && (
-            <div className="bg-gray-50 border-t border-gray-100 p-3 px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p className="text-xs text-gray-500 font-medium">
+            <div className="bg-gray-50 border-t border-gray-100 p-3 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs text-gray-500 font-medium text-center sm:text-left">
                 Showing <span className="font-bold text-gray-900">{(validPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-gray-900">{Math.min(validPage * ITEMS_PER_PAGE, filtered.length)}</span> of <span className="font-bold text-gray-900">{filtered.length}</span> managers
               </p>
               <div className="flex items-center gap-1.5">
@@ -307,15 +347,15 @@ const GlobalMatrixTab = memo(function GlobalMatrixTab({ agentStats, managerStats
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       {/* Header */}
-      <div style={{background: '#1e1b4b'}} className="rounded p-8 shadow-2xl overflow-hidden relative">
+      <div style={{background: '#1e1b4b'}} className="rounded p-4 sm:p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}} />
         <div className="relative z-10">
-          <h2 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
-            <span className="bg-white/15 rounded p-2"><BarChart3 className="w-6 h-6 text-white" /></span>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
+            <span className="bg-white/15 rounded p-2 flex-shrink-0"><BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" /></span>
             Global Staff Matrix
           </h2>
-          <p className="text-indigo-300 text-sm font-medium mb-6">Real-time performance intelligence across your entire operation.</p>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <p className="text-indigo-300 text-xs sm:text-sm font-medium mb-6">Real-time performance intelligence across your entire operation.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
             {[
               { label: 'Total Assigned', value: totals.leads,    color: 'from-blue-400/20 to-indigo-400/20',   border: 'border-blue-400/30',   text: 'text-blue-200' },
               { label: 'Pending',        value: totals.pending,  color: 'from-gray-400/20 to-slate-400/20',    border: 'border-gray-400/30',   text: 'text-gray-300' },
@@ -323,9 +363,9 @@ const GlobalMatrixTab = memo(function GlobalMatrixTab({ agentStats, managerStats
               { label: "WA'd",           value: totals.whatsapp, color: 'from-purple-400/20 to-fuchsia-400/20',border: 'border-purple-400/30', text: 'text-purple-300' },
               { label: "SMS'd",          value: totals.sms,      color: 'from-yellow-400/20 to-amber-400/20',  border: 'border-yellow-400/30', text: 'text-yellow-300' },
             ].map(s => (
-              <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded p-4`}>
-                <p className={`text-xs font-black uppercase tracking-widest ${s.text} mb-1`}>{s.label}</p>
-                <p className="text-3xl font-black text-white">{s.value}</p>
+              <div key={s.label} className={`bg-gradient-to-br ${s.color} border ${s.border} rounded p-3 sm:p-4`}>
+                <p className={`text-[10px] sm:text-xs font-black uppercase tracking-widest ${s.text} mb-1 truncate`}>{s.label}</p>
+                <p className="text-xl sm:text-3xl font-black text-white">{s.value}</p>
               </div>
             ))}
           </div>

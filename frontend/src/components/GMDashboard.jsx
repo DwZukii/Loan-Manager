@@ -250,11 +250,11 @@ export default function GMDashboard({ userEmail, userRole, onLogout }) {
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div><h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-blue-600"><Users className="w-5 h-5" /></span> Manager Directory</h3><p className="text-xs text-gray-400 font-medium mt-0.5">{managers.length} managers</p></div>
-            <div className="relative flex-shrink-0"><input type="text" placeholder="Search managers..." value={managerSearch} onChange={e => setManagerSearch(e.target.value)} className="pl-4 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-white w-56 font-medium" /></div>
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div><h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-blue-600 flex-shrink-0"><Users className="w-5 h-5" /></span> Manager Directory</h3><p className="text-xs text-gray-400 font-medium mt-0.5">{managers.length} managers</p></div>
+            <div className="relative w-full sm:w-56 flex-shrink-0"><input type="text" placeholder="Search managers..." value={managerSearch} onChange={e => setManagerSearch(e.target.value)} className="w-full pl-4 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all bg-white font-medium" /></div>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {managers.length === 0 ? (<div className="text-center py-8"><p className="font-bold text-gray-500">No managers found.</p></div>) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {managers.map(m => {

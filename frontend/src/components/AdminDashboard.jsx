@@ -858,8 +858,8 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> Clean & Add</h2>
+        <div className="bg-white p-4 sm:p-8 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col h-full">
+          <h2 className="text-xl sm:text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Sparkles className="w-5 h-5" /></span> Clean & Add</h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
             <div>
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Target Database Set</label>
@@ -868,7 +868,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
             {/* ── Extract Mode Picker ── */}
             <div>
               <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Extract Mode</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 
                 {/* Mode A — default */}
                 <button
@@ -929,9 +929,9 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
             {/* ── File Upload ── */}
             <div>
-              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">
-                Upload Spreadsheets
-                <span className="ml-1.5 text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
+              <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider flex items-center justify-between">
+                <span>Upload Spreadsheets</span>
+                <span className="text-indigo-400 font-medium normal-case tracking-normal">({selectedFiles.length}/10 files)</span>
               </label>
               <input id="file-upload-input" type="file" multiple accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="w-full p-3 border border-indigo-200 rounded bg-white text-sm shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
               {/* ── Selected file chips ── */}
@@ -949,54 +949,50 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-indigo-600/80 mt-2.5 font-medium">
-                {extractMode === 'all'
-                  ? 'Add up to 10 files. Auto-scans all cells, fixes country codes, and removes duplicates across all files.'
-                  : 'Add up to 10 files. Scans row-by-row — each row must have both a valid Malaysian IC and a phone number.'}
-              </p>
             </div>
-            <div className="mt-auto pt-4">
-              {filesNeedAnalysis ? (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded shadow-sm">
-                  <p className="text-sm font-bold text-indigo-800 mb-3 text-center">{uploadStatus}</p>
-                  {isAnalyzing && (
-                    <div className="w-full bg-indigo-200 rounded-full h-2 mb-3 overflow-hidden">
-                      <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${analyzeProgress}%` }}></div>
-                    </div>
-                  )}
-                  <button onClick={() => scanFiles(selectedFiles)} disabled={isAnalyzing} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded hover:bg-indigo-700 shadow-sm shadow-indigo-400/30 transition-all disabled:opacity-50">
-                    {isAnalyzing ? `Analyzing... ${analyzeProgress}%` : 'Confirm & Analyze Files'}
-                  </button>
-                </div>
+
+            {/* ── Extracted Numbers Preview / Actions ── */}
+            <div className="mt-auto pt-2 space-y-3">
+              {filesNeedAnalysis && selectedFiles.length > 0 ? (
+                <button
+                  onClick={() => scanFiles(selectedFiles)}
+                  disabled={isAnalyzing}
+                  className="w-full bg-amber-500 text-white font-black py-3.5 rounded hover:bg-amber-600 shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isAnalyzing ? `⚡ Analyzing... ${analyzeProgress}%` : `⚡ Extract ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}`}
+                </button>
               ) : validNumbers.length > 0 ? (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded shadow-sm space-y-3">
-                  <p className="text-sm font-bold text-indigo-800 text-center">{uploadStatus}</p>
+                <div className="space-y-3">
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded p-4 text-center">
+                    <p className="text-3xl font-black text-indigo-900">{validNumbers.length.toLocaleString()}</p>
+                    <p className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider mt-0.5">Valid Clean Numbers Found</p>
+                  </div>
                   {/* ── NUMBER PREVIEW ── */}
                   {(() => {
-                    const PAGE_SIZE = 18;
-                    const totalPages = Math.ceil(previewItems.length / PAGE_SIZE);
-                    const pageItems = previewItems.slice(previewPage * PAGE_SIZE, (previewPage + 1) * PAGE_SIZE);
+                    const ITEMS_PER_PREVIEW = 20;
+                    const totalPages = Math.ceil(previewItems.length / ITEMS_PER_PREVIEW);
+                    const startIdx = previewPage * ITEMS_PER_PREVIEW;
+                    const currentBatch = previewItems.slice(startIdx, startIdx + ITEMS_PER_PREVIEW);
+
                     return (
-                      <div className="bg-white border border-indigo-200 rounded overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-indigo-100/60 border-b border-indigo-200">
-                          <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">Preview — {validNumbers.length} numbers ready</span>
-                          {previewItems.some(i => i.age != null) && <span className="text-xs font-bold text-indigo-500">age shown</span>}
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded p-3">
+                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-indigo-100">
+                          <p className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider">Preview ({previewItems.length.toLocaleString()})</p>
+                          <p className="text-[11px] font-medium text-indigo-500">Showing {startIdx + 1}-{Math.min(startIdx + ITEMS_PER_PREVIEW, previewItems.length)}</p>
                         </div>
-                        <div className="p-2">
-                          <div className="flex flex-wrap gap-1.5 min-h-[60px]">
-                            {pageItems.map((item, idx) => {
-                              const realIdx = previewPage * PAGE_SIZE + idx;
+                        <div className="max-h-36 overflow-y-auto pr-1">
+                          <div className="flex flex-wrap gap-1.5">
+                            {currentBatch.map((item, idx) => {
+                              const realIdx = startIdx + idx;
                               return (
-                                <span key={realIdx} className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 rounded-sm pl-2 pr-1 py-0.5 text-xs font-mono text-indigo-900">
+                                <span key={realIdx} className="inline-flex items-center gap-1 bg-white border border-indigo-200 text-indigo-900 text-xs font-mono font-bold px-2 py-1 rounded-sm shadow-2xs">
                                   {item.phone}
-                                  {item.age != null && <span className="bg-indigo-200 text-indigo-800 font-black rounded px-1">{item.age}y</span>}
                                   <button
                                     onClick={() => {
                                       const newItems = previewItems.filter((_, i) => i !== realIdx);
                                       setPreviewItems(newItems);
                                       setValidNumbers(newItems.map(i => i.phone));
-                                      // If removing last item on this page, go back
-                                      const newTotalPages = Math.ceil(newItems.length / PAGE_SIZE);
+                                      const newTotalPages = Math.ceil(newItems.length / ITEMS_PER_PREVIEW);
                                       if (previewPage >= newTotalPages) setPreviewPage(Math.max(0, newTotalPages - 1));
                                     }}
                                     className="ml-0.5 w-3.5 h-3.5 rounded-full bg-indigo-200 hover:bg-red-400 hover:text-white text-indigo-500 flex items-center justify-center transition-colors text-[10px] font-black flex-shrink-0"
@@ -1006,22 +1002,14 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                               );
                             })}
                           </div>
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-indigo-100">
-                              <button
-                                onClick={() => setPreviewPage(p => Math.max(0, p - 1))}
-                                disabled={previewPage === 0}
-                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-sm hover:bg-indigo-200 disabled:opacity-30 transition-colors"
-                              >← Prev</button>
-                              <span className="text-xs font-bold text-indigo-500">Page {previewPage + 1} of {totalPages}</span>
-                              <button
-                                onClick={() => setPreviewPage(p => Math.min(totalPages - 1, p + 1))}
-                                disabled={previewPage === totalPages - 1}
-                                className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-sm hover:bg-indigo-200 disabled:opacity-30 transition-colors"
-                              >Next →</button>
-                            </div>
-                          )}
                         </div>
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t border-indigo-100">
+                            <button onClick={() => setPreviewPage(p => Math.max(0, p - 1))} disabled={previewPage === 0} className="px-3 py-1 text-xs font-bold bg-white text-indigo-700 rounded shadow-sm hover:bg-indigo-50 disabled:opacity-30">←</button>
+                            <span className="text-[10px] font-black text-indigo-400 uppercase">{previewPage + 1} / {totalPages}</span>
+                            <button onClick={() => setPreviewPage(p => Math.min(totalPages - 1, p + 1))} disabled={previewPage === totalPages - 1} className="px-3 py-1 text-xs font-bold bg-white text-indigo-700 rounded shadow-sm hover:bg-indigo-50 disabled:opacity-30">→</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -1037,15 +1025,15 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative flex flex-col h-full">
-          <h2 className="text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> Assign to Staff</h2>
+        <div className="bg-white p-4 sm:p-8 rounded shadow-md border border-gray-100 relative flex flex-col h-full">
+          <h2 className="text-xl sm:text-2xl font-bold text-indigo-900 mb-6 flex items-center gap-3 relative z-10"><span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Users className="w-5 h-5" /></span> Assign to Staff</h2>
           <div className="space-y-6 flex-1 flex flex-col relative z-10">
             <div className="bg-white rounded border border-indigo-200 flex flex-col text-sm text-indigo-900 shadow-sm overflow-hidden">
               <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set A Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set A']||0}</b></div>
               <div className="flex justify-between items-center p-3.5 border-b border-indigo-100 font-bold bg-indigo-50/50"><span>Set B Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set B']||0}</b></div>
               <div className="flex justify-between items-center p-3.5 font-bold bg-indigo-50/50"><span>Set C Pool:</span><b className="text-indigo-800 bg-white shadow-sm border border-indigo-100 px-3 py-1 rounded-full text-xs">{unassignedCounts['Set C']||0}</b></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-indigo-900 mb-2 uppercase tracking-wider">Pull From</label>
                 <select value={assignSet} onChange={(e) => setAssignSet(e.target.value)} className="w-full p-3.5 border border-indigo-200 rounded bg-white font-black text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
@@ -1107,14 +1095,14 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded shadow-md border border-gray-100 relative z-20 flex flex-col xl:flex-row gap-8 items-center mt-6">
+      <div className="bg-white p-4 sm:p-8 rounded shadow-md border border-gray-100 relative z-20 flex flex-col xl:flex-row gap-6 xl:gap-8 items-start xl:items-center mt-6">
 
-        <div className="xl:w-1/3 relative z-10 text-center xl:text-left flex flex-col items-center xl:items-start">
-          <h2 className="text-2xl font-bold text-blue-900 mb-3 flex items-center gap-3"><span className="bg-blue-100 text-blue-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Share2 className="w-5 h-5" /></span> Share to Managers</h2>
-          <p className="text-sm text-blue-700/80 max-w-sm">Transfer robust leads from your Admin pool directly into a Manager's command pool seamlessly.</p>
+        <div className="xl:w-1/3 w-full relative z-10 text-left">
+          <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-2 flex items-center gap-3"><span className="bg-blue-100 text-blue-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Share2 className="w-5 h-5" /></span> Share to Managers</h2>
+          <p className="text-xs sm:text-sm text-blue-700/80 max-w-sm">Transfer robust leads from your Admin pool directly into a Manager's command pool seamlessly.</p>
         </div>
         
-        <div className="xl:w-2/3 w-full flex-1 flex flex-col sm:flex-row gap-4 relative z-10 items-end">
+        <div className="xl:w-2/3 w-full flex-1 flex flex-col sm:flex-row gap-4 relative z-10 items-stretch sm:items-end">
           <div className="w-full sm:w-1/4">
             <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wider">Pull From</label>
             <select value={transferSet} onChange={(e) => setTransferSet(e.target.value)} className="w-full p-3.5 border border-blue-200 rounded bg-white font-black text-blue-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"><option value="Set A">Set A</option><option value="Set B">Set B</option><option value="Set C">Set C</option></select>
@@ -1183,31 +1171,31 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
       {transferStatus && <p className="text-sm font-bold text-blue-700 bg-blue-50 p-4 border border-blue-100 rounded text-center shadow-sm">{transferStatus}</p>}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white p-4 sm:p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-red-100 text-red-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm"><Trash2 className="w-5 h-5" /></span>
-              <h2 className="text-xl font-bold text-red-900">Cold Storage</h2>
+              <span className="bg-red-100 text-red-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><Trash2 className="w-5 h-5" /></span>
+              <h2 className="text-lg sm:text-xl font-bold text-red-900">Cold Storage</h2>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days across the system.</p>
+            <p className="text-xs sm:text-sm text-gray-600 mb-4">Permanently incinerate all <span className="font-bold">Rejected</span> leads older than 30 days across the system.</p>
             {archiveStatus && <p className="text-xs font-bold text-red-600 mb-4 animate-pulse">{archiveStatus}</p>}
           </div>
           <button 
             onClick={handleArchiveDeadLeads} 
             disabled={isArchiving} 
-            className="w-full bg-red-600 py-3 text-white font-bold rounded hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10"
+            className="w-full bg-red-600 py-3 text-white font-bold rounded hover:bg-red-700 shadow-sm transition disabled:opacity-50 relative z-10 text-sm"
           >
             {isArchiving ? "Incinerating..." : "Archive Dead Leads"}
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
+        <div className="bg-white p-4 sm:p-6 rounded shadow-md border border-gray-100 relative overflow-hidden flex flex-col justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-gray-100 text-gray-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm"><ShieldCheck className="w-5 h-5" /></span>
-              <h2 className="text-xl font-bold text-gray-900">Data Quality</h2>
+              <span className="bg-gray-100 text-gray-700 rounded-sm w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0"><ShieldCheck className="w-5 h-5" /></span>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Data Quality</h2>
             </div>
-            <p className="text-sm text-gray-600 mb-4">There are <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} leads</span> marked as invalid. Purge them to maintain database health.</p>
+            <p className="text-xs sm:text-sm text-gray-600 mb-4">There are <span className="font-bold text-gray-900">{agentStats.reduce((sum, agent) => sum + (agent.invalid || 0), 0)} leads</span> marked as invalid. Purge them to maintain database health.</p>
             {purgeStatus && <p className="text-xs font-bold text-gray-600 mb-4 animate-pulse">{purgeStatus}</p>}
           </div>
           <button 
@@ -1302,14 +1290,14 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Provision New Account */}
         <div className="bg-white rounded shadow-sm overflow-hidden border border-gray-100">
-          <div style={{background: '#1e1b4b'}} className="px-8 py-6 flex items-center gap-4">
-            <span className="bg-white/15 rounded p-2.5"><Sparkles className="w-6 h-6 text-white" /></span>
+          <div style={{background: '#1e1b4b'}} className="px-4 sm:px-8 py-4 sm:py-6 flex items-center gap-4">
+            <span className="bg-white/15 rounded p-2.5 flex-shrink-0"><Sparkles className="w-6 h-6 text-white" /></span>
             <div>
-              <h3 className="text-xl font-extrabold text-white">Provision New Account</h3>
-              <p className="text-indigo-300 text-sm mt-0.5 font-medium">Create a secure login for a new staff member or manager.</p>
+              <h3 className="text-lg sm:text-xl font-extrabold text-white">Provision New Account</h3>
+              <p className="text-indigo-300 text-xs sm:text-sm mt-0.5 font-medium">Create a secure login for a new staff member or manager.</p>
             </div>
           </div>
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               <div>
                 <label className="block text-xs font-black text-indigo-900 mb-2 uppercase tracking-widest">Email Address</label>
@@ -1354,22 +1342,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Manager Directory & Teams */}
         <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500"><User className="w-5 h-5" /></span> Manager Directory & Teams</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><User className="w-5 h-5" /></span> Manager Directory & Teams</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {managersList.filter(m => m.email.toLowerCase().includes(managerSearch.toLowerCase())).length} of {managersList.length} manager{managersList.length !== 1 ? 's' : ''} · {agentsList.length} total staff
                 </p>
               </div>
-              <div className="relative flex-shrink-0">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <div className="relative w-full sm:w-56 flex-shrink-0">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input
                   type="text"
                   placeholder="Search managers..."
                   value={managerSearch}
                   onChange={e => setManagerSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+                  className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
                 />
                 {managerSearch && (
                   <button onClick={() => setManagerSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -1377,7 +1365,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
               </div>
             </div>
           </div>
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             {managersList.length === 0 ? (
               <div className="text-center py-12"><div className="text-4xl mb-3">🏢</div><p className="font-bold text-gray-500">No managers configured.</p><p className="text-sm text-gray-400 mt-1">Create a manager account above.</p></div>
             ) : (() => {
@@ -1399,12 +1387,12 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                           >
                             <div className="flex items-center gap-4 mb-4">
                               <div className="w-12 h-12 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl uppercase shadow-sm flex-shrink-0">{m.email.charAt(0)}</div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 {m.full_name && <h4 className="font-extrabold text-gray-900 text-lg truncate leading-tight">{m.full_name}</h4>}
                                 <p className={`text-sm truncate font-bold text-gray-500 ${!m.full_name && 'text-lg text-gray-900'}`}>{m.email}</p>
                               </div>
                             </div>
-                            {m.contact_number ? (<div className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-sm border border-indigo-100 w-full justify-center"><Phone className="w-4 h-4" />{m.contact_number}</div>) : (<div className="inline-flex items-center gap-1.5 text-sm text-gray-400 font-bold bg-gray-50 px-3 py-1.5 rounded-sm border border-gray-200 w-full justify-center">No contact number</div>)}
+                            {m.contact_number ? (<div className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-sm border border-indigo-100 w-full justify-center truncate"><Phone className="w-4 h-4 flex-shrink-0" />{m.contact_number}</div>) : (<div className="inline-flex items-center gap-1.5 text-sm text-gray-400 font-bold bg-gray-50 px-3 py-1.5 rounded-sm border border-gray-200 w-full justify-center">No contact number</div>)}
                           </button>
                           <div className="p-4 bg-white">
                             {team.length === 0 ? <p className="text-sm text-gray-400 italic text-center py-3">No staff assigned yet.</p> : (() => {
@@ -1419,7 +1407,7 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                                       onClick={() => setExpandedManagers(prev => ({...prev, [m.id]: !prev[m.id]}))}
                                       className="w-full mt-3 py-2 bg-gray-50 hover:bg-indigo-50 text-indigo-600 font-bold text-xs rounded-sm border border-gray-100 hover:border-indigo-100 transition-colors flex items-center justify-center shadow-sm"
                                     >
-                                      {isExpanded ? 'Hide Staff \u2191' : `View All ${team.length} Staff \u2193`}
+                                      {isExpanded ? 'Hide Staff ↑' : `View All ${team.length} Staff ↓`}
                                     </button>
                                   )}
                                 </>
@@ -1438,22 +1426,22 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Reassign Staff */}
         <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-sm flex items-center justify-center text-amber-600"><RefreshCw className="w-5 h-5" /></span> Reassign Staff</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-amber-100 rounded-sm flex items-center justify-center text-amber-600 flex-shrink-0"><RefreshCw className="w-5 h-5" /></span> Reassign Staff</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {agentsList.filter(a => a.email.toLowerCase().includes(staffSearch.toLowerCase())).length} of {agentsList.length} staff member{agentsList.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="relative flex-shrink-0">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <div className="relative w-full sm:w-56 flex-shrink-0">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input
                   type="text"
                   placeholder="Search staff..."
                   value={staffSearch}
                   onChange={e => setStaffSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white w-56 font-medium"
+                  className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
                 />
                 {staffSearch && (
                   <button onClick={() => setStaffSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -1472,35 +1460,60 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                 </div>
               );
               return (
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr className="border-b border-gray-200">
-                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Staff Account</th>
-                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Manager Assignment</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
+                <>
+                  {/* 📱 Mobile Card View (< sm) */}
+                  <div className="sm:hidden p-4 space-y-3 divide-y divide-gray-100">
                     {filtered.map(agent => (
-                      <tr key={agent.id} className="hover:bg-indigo-50/30 transition-colors">
-                        <td className="px-6 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{agent.email.charAt(0)}</div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-800">{agent.email}</p>
-                              <p className="text-xs text-gray-400">{agent.manager_email ? `→ ${agent.manager_email}` : 'Unassigned'}</p>
-                            </div>
+                      <div key={agent.id} className="pt-3 first:pt-0 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{agent.email.charAt(0)}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-gray-800 truncate">{agent.email}</p>
+                            <p className="text-xs text-gray-400">{agent.manager_email ? `→ ${agent.manager_email}` : 'Unassigned'}</p>
                           </div>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <select value={agent.manager_email || ''} onChange={(e) => handleAssignManager(agent.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 font-bold text-gray-700 outline-none transition-all">
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Assign Manager</label>
+                          <select value={agent.manager_email || ''} onChange={(e) => handleAssignManager(agent.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-xs bg-white focus:ring-2 focus:ring-indigo-500 font-bold text-gray-700 outline-none transition-all">
                             <option value="">Unassigned</option>
                             {managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}
                           </select>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+
+                  {/* 🖥️ Desktop Table View (>= sm) */}
+                  <table className="hidden sm:table w-full text-left border-collapse">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr className="border-b border-gray-200">
+                        <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Staff Account</th>
+                        <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Manager Assignment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {filtered.map(agent => (
+                        <tr key={agent.id} className="hover:bg-indigo-50/30 transition-colors">
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{agent.email.charAt(0)}</div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{agent.email}</p>
+                                <p className="text-xs text-gray-400">{agent.manager_email ? `→ ${agent.manager_email}` : 'Unassigned'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <select value={agent.manager_email || ''} onChange={(e) => handleAssignManager(agent.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 font-bold text-gray-700 outline-none transition-all">
+                              <option value="">Unassigned</option>
+                              {managersList.map(m => <option key={m.id} value={m.email}>{m.email}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
               );
             })()}
           </div>
@@ -1508,10 +1521,10 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
 
         {/* Reassign Managers to GMs */}
         <div className="bg-white border border-gray-100 rounded shadow-sm overflow-hidden mt-6">
-          <div className="px-8 py-5 border-b border-gray-100 bg-gray-50/60">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-blue-600"><Users className="w-5 h-5" /></span> Assign Managers to GM</h3>
+                <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2"><span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-blue-600 flex-shrink-0"><Users className="w-5 h-5" /></span> Assign Managers to GM</h3>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
                   {managersList.length} manager{managersList.length !== 1 ? 's' : ''} available
                 </p>
@@ -1524,35 +1537,60 @@ export default function AdminDashboard({ userEmail, userRole, onLogout }) {
                   <p className="font-bold text-gray-500">No manager accounts found.</p>
                 </div>
             ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr className="border-b border-gray-200">
-                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Manager Account</th>
-                      <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">General Manager Assignment</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
+                <>
+                  {/* 📱 Mobile Card View (< sm) */}
+                  <div className="sm:hidden p-4 space-y-3 divide-y divide-gray-100">
                     {managersList.map(manager => (
-                      <tr key={manager.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="px-6 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{manager.email.charAt(0)}</div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-800">{manager.email}</p>
-                              <p className="text-xs text-gray-400">{manager.general_manager_email ? `→ ${manager.general_manager_email}` : 'Unassigned'}</p>
-                            </div>
+                      <div key={manager.id} className="pt-3 first:pt-0 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{manager.email.charAt(0)}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-gray-800 truncate">{manager.email}</p>
+                            <p className="text-xs text-gray-400">{manager.general_manager_email ? `→ ${manager.general_manager_email}` : 'Unassigned'}</p>
                           </div>
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 font-bold text-gray-700 outline-none transition-all">
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Assign General Manager</label>
+                          <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-xs bg-white focus:ring-2 focus:ring-blue-500 font-bold text-gray-700 outline-none transition-all">
                             <option value="">Unassigned</option>
                             {gmList.map(gm => <option key={gm.id} value={gm.email}>{gm.email}</option>)}
                           </select>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+
+                  {/* 🖥️ Desktop Table View (>= sm) */}
+                  <table className="hidden sm:table w-full text-left border-collapse">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr className="border-b border-gray-200">
+                        <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">Manager Account</th>
+                        <th className="px-6 py-3 text-xs font-black text-gray-500 uppercase tracking-widest">General Manager Assignment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {managersList.map(manager => (
+                        <tr key={manager.id} className="hover:bg-blue-50/30 transition-colors">
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white text-xs font-black uppercase shadow-sm flex-shrink-0">{manager.email.charAt(0)}</div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{manager.email}</p>
+                                <p className="text-xs text-gray-400">{manager.general_manager_email ? `→ ${manager.general_manager_email}` : 'Unassigned'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <select value={manager.general_manager_email || ''} onChange={(e) => handleAssignGM(manager.email, e.target.value)} className="w-full p-2.5 border-2 border-gray-200 rounded text-sm bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 font-bold text-gray-700 outline-none transition-all">
+                              <option value="">Unassigned</option>
+                              {gmList.map(gm => <option key={gm.id} value={gm.email}>{gm.email}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
             )}
           </div>
         </div>
