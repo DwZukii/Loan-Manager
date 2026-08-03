@@ -40,17 +40,37 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteCustomer = async (id) => {
-    const { error } = await supabase.from('customers').delete().eq('id', id)
-    if (error) {
+    try {
+      // 1. Fetch document storage paths for this customer before deleting
+      const { data: docs } = await supabase
+        .from('customer_documents')
+        .select('storage_path')
+        .eq('customer_id', id)
+
+      // 2. Delete files from Supabase Storage if any exist
+      if (docs && docs.length > 0) {
+        const paths = docs.map(d => d.storage_path).filter(Boolean)
+        if (paths.length > 0) {
+          await supabase.storage
+            .from('customer-documents')
+            .remove(paths)
+        }
+      }
+
+      // 3. Delete customer record from database (cascades to customer_documents, notes, reminders)
+      const { error } = await supabase.from('customers').delete().eq('id', id)
+      if (error) throw error
+
+      toast.success('Customer deleted.')
+      queryClient.invalidateQueries({ queryKey: ['managerPipelineData', userEmail] })
+      queryClient.invalidateQueries({ queryKey: ['adminPipelineData'] })
+      queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
+      return true
+    } catch (error) {
       toast.error('Failed to delete customer.')
       console.error(error)
       return false
     }
-    toast.success('Customer deleted.')
-    queryClient.invalidateQueries({ queryKey: ['managerPipelineData', userEmail] })
-    queryClient.invalidateQueries({ queryKey: ['adminPipelineData'] })
-    queryClient.invalidateQueries({ queryKey: ['pipelineData'] })
-    return true
   }
 
   // ── Form saved ──────────────────────────────────────────────────────────────
@@ -77,6 +97,7 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
       {showForm && (
         <AddCustomerForm
           onAdd={handleFormSaved}
+          onCancel={() => setShowForm(false)}
           userEmail={userEmail}
         />
       )}
@@ -106,7 +127,6 @@ export default function CustomerPipelineManagerPage({ userEmail, userRole, agent
           agentsList={agentsList}
           userRole={userRole}
           onNewSubmissionClick={() => setShowForm(prev => !prev)}
-          showForm={showForm}
         />
       )}
     </div>

@@ -63,21 +63,41 @@ export default function CustomerPipelinePage({ userEmail }) {
 
   // ── Delete a customer ───────────────────────────────────────────────────────
   const handleDeleteCustomer = async (id) => {
-    const { error } = await supabase
-      .from('customers')
-      .delete()
-      .eq('id', id)
+    try {
+      // 1. Fetch document storage paths for this customer before deleting
+      const { data: docs } = await supabase
+        .from('customer_documents')
+        .select('storage_path')
+        .eq('customer_id', id)
 
-    if (error) {
+      // 2. Delete files from Supabase Storage if any exist
+      if (docs && docs.length > 0) {
+        const paths = docs.map(d => d.storage_path).filter(Boolean)
+        if (paths.length > 0) {
+          await supabase.storage
+            .from('customer-documents')
+            .remove(paths)
+        }
+      }
+
+      // 3. Delete customer record from database (cascades to customer_documents, notes, reminders)
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      toast.success('Customer deleted successfully.')
+      queryClient.invalidateQueries({ queryKey: ['pipelineData', userEmail] })
+      queryClient.invalidateQueries({ queryKey: ['adminPipelineData'] })
+      queryClient.invalidateQueries({ queryKey: ['managerPipelineData'] })
+      return true
+    } catch (error) {
       console.error('Error deleting customer:', error)
       toast.error('Failed to delete customer.')
       return false
     }
-
-    toast.success('Customer deleted successfully.')
-    queryClient.invalidateQueries({ queryKey: ['pipelineData', userEmail] })
-    queryClient.invalidateQueries({ queryKey: ['adminPipelineData'] })
-    return true
   }
 
   // ── Client-side search + status filter ─────────────────────────────────────────
@@ -108,6 +128,7 @@ export default function CustomerPipelinePage({ userEmail }) {
       {showForm && (
         <AddCustomerForm
           onAdd={handleFormSaved}
+          onCancel={() => setShowForm(false)}
           userEmail={userEmail}
         />
       )}
@@ -128,17 +149,9 @@ export default function CustomerPipelinePage({ userEmail }) {
             {/* Mobile Only: + Add Submission button */}
             <button
               onClick={() => setShowForm(prev => !prev)}
-              className={`sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs transition shadow-sm flex-shrink-0 ${
-                showForm
-                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+              className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex-shrink-0"
             >
-              {showForm ? (
-                <><X className="w-3.5 h-3.5" /> Cancel</>
-              ) : (
-                <><Plus className="w-3.5 h-3.5" /> Add Submission</>
-              )}
+              <Plus className="w-3.5 h-3.5" /> Add Submission
             </button>
           </div>
 
@@ -174,17 +187,9 @@ export default function CustomerPipelinePage({ userEmail }) {
             {/* Desktop Only: + Add Submission button */}
             <button
               onClick={() => setShowForm(prev => !prev)}
-              className={`hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
-                showForm
-                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex-shrink-0"
             >
-              {showForm ? (
-                <><X className="w-3.5 h-3.5" /> Cancel</>
-              ) : (
-                <><Plus className="w-3.5 h-3.5" /> Add Submission</>
-              )}
+              <Plus className="w-3.5 h-3.5" /> Add Submission
             </button>
           </div>
         </div>

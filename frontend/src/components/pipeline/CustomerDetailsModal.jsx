@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '../../supabase'
 import { useQueryClient } from '@tanstack/react-query'
 import { useConfirm } from '../../hooks/useConfirm'
-import { parseDobFromIC, formatPhone } from '../../utils'
+import { parseDobFromIC, formatPhone, getWhatsAppUrl } from '../../utils'
 
 function SearchableAgentCombobox({ value, onChange, agentsList }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -480,9 +480,20 @@ export default function CustomerDetailsModal({ customer, onClose, onDelete, agen
                   </div>
                   <div>
                     <FieldLabel icon={Phone} label="Phone Number" />
-                    <p className="text-sm font-medium text-gray-900">
-                      {customer.phoneNumber ? formatPhone(customer.phoneNumber) : '—'}
-                    </p>
+                    {customer.phoneNumber ? (
+                      <a
+                        href={getWhatsAppUrl(customer.phoneNumber)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors group mt-0.5"
+                        title="Click to open WhatsApp chat"
+                      >
+                        {formatPhone(customer.phoneNumber)}
+                        <ExternalLink className="w-3.5 h-3.5 opacity-75 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900">—</p>
+                    )}
                   </div>
                   <div>
                     <FieldLabel icon={Clock} label="Status" />

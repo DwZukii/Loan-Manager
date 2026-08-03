@@ -141,7 +141,7 @@ function SearchableAgentSelect({ value, onChange, options }) {
   )
 }
 
-export default function AllCasesTable({ customers, onStatusChange, onDelete, agentsList = [], userRole, onNewSubmissionClick, showForm }) {
+export default function AllCasesTable({ customers, onStatusChange, onDelete, agentsList = [], userRole, onNewSubmissionClick }) {
   const [agentFilter,   setAgentFilter]   = useState('')
   const [selectedAgent, setSelectedAgent] = useState('All')
   const [statusFilter,  setStatusFilter]  = useState('All')
@@ -204,17 +204,9 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
         {onNewSubmissionClick && (
           <button
             onClick={onNewSubmissionClick}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition shadow-sm flex-shrink-0 ${
-              showForm
-                ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-            }`}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-sm transition shadow-sm flex-shrink-0"
           >
-            {showForm ? (
-              <><X className="w-4 h-4" /> Cancel</>
-            ) : (
-              <><Plus className="w-4 h-4" /> New Submission</>
-            )}
+            <Plus className="w-4 h-4" /> New Submission
           </button>
         )}
       </div>

@@ -58,12 +58,12 @@ const extractAge = (icStr) => {
 const runAllNumbersExtraction = (rawData) => {
   const extracted = []
   rawData.forEach(row => {
+    if (!row) return
     row.forEach(cell => {
       if (!cell) return
       const cellStr = String(cell)
-      const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
-      const parts = normalized.split(',')
-      parts.forEach(part => {
+      const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
+      matches.forEach(part => {
         let clean = part.replace(/\D/g, '')
         if (!clean) return
         if (clean.startsWith('0060')) clean = clean.substring(2)
@@ -84,9 +84,9 @@ const runAgeFilteredExtraction = (rawData, minA, maxA) => {
     row.forEach(cell => {
       if (!cell) return
       const cellStr = String(cell)
-      const normalized = cellStr.replace(/and|or|&|;|\n|\/|\|/gi, ',')
-      normalized.split(',').forEach(part => {
-        const result = classifyNumber(part.trim())
+      const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
+      matches.forEach(part => {
+        const result = classifyNumber(part)
         if (!result) return
         if (result.type === 'ic')        ics.push(result.value)
         else if (result.type === 'phone')     phones.push(result.value)

@@ -66,3 +66,15 @@ export const parseDobFromIC = (ic) => {
 
   return `${fullYear}-${formattedMonth}-${formattedDay}`
 }
+
+/**
+ * getWhatsAppUrl — Generates a direct WhatsApp (wa.me) URL for a Malaysian phone number.
+ */
+export const getWhatsAppUrl = (phone) => {
+  if (!phone) return '#'
+  let clean = String(phone).replace(/\D/g, '')
+  if (clean.startsWith('0060')) clean = clean.substring(2)
+  else if (clean.startsWith('0')) clean = '6' + clean
+  else if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
+  return `https://wa.me/${clean}`
+}

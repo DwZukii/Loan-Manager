@@ -17,10 +17,18 @@ const EMPTY_FORM = {
   reminderNote: '',
 }
 
-export default function AddCustomerForm({ onAdd, userEmail }) {
+export default function AddCustomerForm({ onAdd, onCancel, userEmail }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
   const [isSaving, setIsSaving] = useState(false)
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel()
+    } else if (onAdd) {
+      onAdd()
+    }
+  }
 
   const set = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -149,13 +157,22 @@ export default function AddCustomerForm({ onAdd, userEmail }) {
   return (
     <div className="bg-white border border-gray-100 shadow-sm rounded-md p-6 sm:p-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 flex items-center justify-center flex-shrink-0">
-          <UserPlus className="w-4 h-4" />
-        </span>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">Add Customer</h2>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <span className="bg-indigo-100 text-indigo-700 rounded-sm w-9 h-9 flex items-center justify-center flex-shrink-0">
+            <UserPlus className="w-4 h-4" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Add Customer</h2>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-md text-sm transition shadow-sm flex-shrink-0"
+        >
+          <X className="w-4 h-4" /> Cancel
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
