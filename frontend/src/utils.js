@@ -78,3 +78,32 @@ export const getWhatsAppUrl = (phone) => {
   else if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
   return `https://wa.me/${clean}`
 }
+
+/**
+ * formatNotificationTime — Formats an ISO date string into a user-friendly notification timestamp.
+ * Example: "Today at 10:45 AM", "Yesterday at 3:15 PM", "04 Aug 2026 at 10:45 AM"
+ */
+export const formatNotificationTime = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday = d.toDateString() === yesterday.toDateString()
+
+  const timeString = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  if (isToday) {
+    return `Today at ${timeString}`
+  }
+  if (isYesterday) {
+    return `Yesterday at ${timeString}`
+  }
+
+  const dateString = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  return `${dateString} at ${timeString}`
+}

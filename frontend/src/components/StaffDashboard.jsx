@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense, useMemo } from 'react'
-import { formatPhone } from '../utils'
+import { formatPhone, formatNotificationTime } from '../utils'
 import { supabase } from '../supabase'
 import UserDropdown from './UserDropdown'
 import NavSlider from './NavSlider'
@@ -547,8 +547,15 @@ Balas YA jika berminat`;
             >✕ Dismiss</button>
             <div className="flex items-start gap-3 pr-20">
               <Inbox className="w-6 h-6 text-indigo-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-black text-indigo-900 text-sm">New Leads Assigned</h3>
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
+                  <h3 className="font-black text-indigo-900 text-sm">New Leads Assigned</h3>
+                  {notif.createdAt && (
+                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-100/70 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
+                      {formatNotificationTime(notif.createdAt)}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-indigo-800 mt-0.5">{notif.message}</p>
                 <button onClick={() => navigateTo('leads')} className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition">View Leads →</button>
               </div>
@@ -565,8 +572,13 @@ Balas YA jika berminat`;
             >✕ Dismiss</button>
             <div className="flex items-start gap-3 pr-20">
               <Cake className="w-6 h-6 text-rose-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-black text-rose-900 text-sm flex items-center gap-1.5"><Cake className="w-4 h-4 text-rose-500" /> Birthday Today!</h3>
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
+                  <h3 className="font-black text-rose-900 text-sm flex items-center gap-1.5"><Cake className="w-4 h-4 text-rose-500" /> Birthday Today!</h3>
+                  <span className="text-[11px] font-bold text-rose-600 bg-rose-100/70 border border-rose-200/60 px-2.5 py-0.5 rounded-full">
+                    Today
+                  </span>
+                </div>
                 <p className="text-sm text-rose-800 mt-0.5">
                   <strong>{customer.fullName}</strong>'s birthday is today — great time to follow up!
                 </p>
@@ -585,8 +597,15 @@ Balas YA jika berminat`;
             >✕ Dismiss</button>
             <div className="flex items-start gap-3 pr-20">
               <Bell className="w-6 h-6 text-violet-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-black text-violet-900 text-sm flex items-center gap-1.5"><Bell className="w-4 h-4 text-violet-500" /> Follow-Up Reminder</h3>
+              <div className="w-full">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
+                  <h3 className="font-black text-violet-900 text-sm flex items-center gap-1.5"><Bell className="w-4 h-4 text-violet-500" /> Follow-Up Reminder</h3>
+                  {reminder.createdAt && (
+                    <span className="text-[11px] font-bold text-violet-600 bg-violet-100/70 border border-violet-200/60 px-2.5 py-0.5 rounded-full">
+                      {formatNotificationTime(reminder.createdAt)}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-violet-800 mt-0.5">
                   <strong>{reminder.customerName}</strong> — {reminder.note}
                 </p>

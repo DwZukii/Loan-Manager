@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { formatPhone } from '../utils'
+import { formatPhone, formatNotificationTime } from '../utils'
 import { createPortal } from 'react-dom'
 import { supabase } from '../supabase'
 import { createClient } from '@supabase/supabase-js'
@@ -961,7 +961,19 @@ export default function ManagerDashboard({ userEmail, userRole, onLogout }) {
                 {systemAlerts.map(lead => (
                   <div key={lead.id} className="border border-indigo-200 rounded p-5 bg-indigo-50/50 relative group shadow-sm">
                     <button onClick={() => handleDismissAdminDrop(lead.id, lead.ids)} className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 font-bold p-1 rounded-md bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100">✕ Dismiss</button>
-                    <div className="flex justify-between items-start mb-2 pr-20"><h3 className="font-black text-indigo-900 flex items-center gap-2">⚠️ System Alert</h3><span className="text-xs px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-200 bg-indigo-100 text-indigo-800">{lead.status}</span></div>
+                    <div className="flex justify-between items-start mb-2 pr-20">
+                      <h3 className="font-black text-indigo-900 flex items-center gap-2">⚠️ System Alert</h3>
+                      <div className="flex items-center gap-2">
+                        {lead.createdAt && (
+                          <span className="text-[11px] font-bold text-indigo-600 bg-white border border-indigo-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+                            {formatNotificationTime(lead.createdAt)}
+                          </span>
+                        )}
+                        {lead.status && (
+                          <span className="text-xs px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-200 bg-indigo-100 text-indigo-800">{lead.status}</span>
+                        )}
+                      </div>
+                    </div>
                     <p className="text-sm text-indigo-800 font-bold">{lead.message}</p>
                   </div>
                 ))}

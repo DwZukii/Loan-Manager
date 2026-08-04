@@ -126,10 +126,16 @@ export function useManagerData(userEmail) {
         const sets = [...new Set(adminLeadsData.map(l => l.lead_set))];
         sets.forEach(setName => {
           const leadsForSet = adminLeadsData.filter(l => l.lead_set === setName);
+          const newestTime = leadsForSet.reduce((latest, l) => {
+            if (!l.created_at) return latest
+            if (!latest) return l.created_at
+            return new Date(l.created_at) > new Date(latest) ? l.created_at : latest
+          }, null)
+
           adminNotifs.push({
             id: 'admin-' + setName,
             message: `Admin transferred ${leadsForSet.length} leads into your pool (${setName}).`,
-            time: 'Just Now',
+            createdAt: newestTime,
             type: 'admin_drop',  // must match the 'admin_drop' check in rendering
             ids: leadsForSet.map(l => l.id) // needed by handleDismissAdminDrop to update the DB
           });
