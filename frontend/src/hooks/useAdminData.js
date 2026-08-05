@@ -78,7 +78,7 @@ export function useAdminData(userEmail, userRole) {
       }
 
       let leadsQuery = supabase.from('leads')
-        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, manager_reviewed')
+        .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, manager_reviewed, updated_at')
         .eq('admin_reviewed', false)
         .or('status.eq.Accepted,agent_notes.neq.,document_url.not.is.null')
         .order('id', { ascending: false });

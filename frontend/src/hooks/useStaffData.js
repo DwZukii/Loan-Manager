@@ -98,8 +98,8 @@ export function useStaffData(userEmail) {
         Promise.all(unreviewedPromises),
       ])
 
-      const allLeads = leadsResults.flatMap(r => r.data || [])
-      const unreviewedData = unreviewedResults.flatMap(r => r.data || [])
+      const allLeads = leadsResults.flatMap(r => (r && Array.isArray(r.data) ? r.data : []))
+      const unreviewedData = unreviewedResults.flatMap(r => (r && Array.isArray(r.data) ? r.data : []))
 
       const sortedData = [...allLeads].sort((a, b) => {
         if (a.status === 'Pending' && b.status !== 'Pending') return -1;
@@ -128,7 +128,7 @@ export function useStaffData(userEmail) {
             message: `You have ${leads.length} new lead${leads.length !== 1 ? 's' : ''} shared with you (${setName}).`,
             leadSet: setName,
             ids: leads.map(l => l.id),
-            createdAt: newestTime,
+            createdAt: newestTime || new Date().toISOString(),
             type: 'new_leads'
           })
         })

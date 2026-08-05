@@ -39,7 +39,7 @@ export function useManagerData(userEmail) {
       const [profilesRes, adminLeadsRes, countsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('manager_email', userEmail), // Fetch only my team
         supabase.from('leads')
-          .select('id, lead_set')
+          .select('id, lead_set, created_at')
           .eq('pool_owner', userEmail)
           .eq('assigned_to', 'unassigned')
           .eq('manager_reviewed', false),
@@ -77,7 +77,7 @@ export function useManagerData(userEmail) {
         dependentPromises.push(supabase.rpc('get_agent_stats', { agent_emails: teamEmails }));
         dependentPromises.push(
           supabase.from('leads')
-            .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, admin_reviewed')
+            .select('id, phone_number, status, assigned_to, agent_notes, document_url, lead_set, admin_reviewed, updated_at')
             .in('assigned_to', teamEmails)
             .eq('manager_reviewed', false)
             .or('status.eq.Accepted,agent_notes.neq.,document_url.not.is.null')
@@ -135,7 +135,7 @@ export function useManagerData(userEmail) {
           adminNotifs.push({
             id: 'admin-' + setName,
             message: `Admin transferred ${leadsForSet.length} leads into your pool (${setName}).`,
-            createdAt: newestTime,
+            createdAt: newestTime || new Date().toISOString(),
             type: 'admin_drop',  // must match the 'admin_drop' check in rendering
             ids: leadsForSet.map(l => l.id) // needed by handleDismissAdminDrop to update the DB
           });
