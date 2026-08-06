@@ -57,42 +57,68 @@ const extractAge = (icStr) => {
 
 const runAllNumbersExtraction = (rawData) => {
   const extracted = []
-  rawData.forEach(row => {
-    if (!row) return
-    row.forEach(cell => {
-      if (!cell) return
+  const totalRows = rawData.length
+  const showProgress = totalRows > 20000
+
+  for (let idx = 0; idx < totalRows; idx++) {
+    const row = rawData[idx]
+    if (showProgress && idx % 25000 === 0) {
+      const pct = Math.floor((idx / totalRows) * 100)
+      process.stdout.write(`\rExtracting numbers... ${pct}% (${idx}/${totalRows} rows)   `)
+    }
+    if (!row) continue
+
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c]
+      if (!cell) continue
       const cellStr = String(cell)
+      // Fast pre-check: skip cell if it doesn't contain any digits
+      if (!/\d/.test(cellStr)) continue
+
       const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
-      matches.forEach(part => {
-        let clean = part.replace(/\D/g, '')
-        if (!clean) return
+      for (let m = 0; m < matches.length; m++) {
+        let clean = matches[m].replace(/\D/g, '')
+        if (!clean) continue
         if (clean.startsWith('0060')) clean = clean.substring(2)
         if (clean.startsWith('1') && (clean.length === 9 || clean.length === 10)) clean = '60' + clean
         else if (clean.startsWith('0') && (clean.length === 10 || clean.length === 11)) clean = '6' + clean
         if (clean.startsWith('601') && (clean.length === 11 || clean.length === 12)) extracted.push(clean)
-      })
-    })
-  })
+      }
+    }
+  }
+  if (showProgress) console.log(`\rExtracting numbers... 100% (${totalRows}/${totalRows} rows)   `)
   return extracted
 }
 
 const runAgeFilteredExtraction = (rawData, minA, maxA) => {
   const extracted = []
-  rawData.forEach(row => {
-    if (!row || row.length === 0) return
+  const totalRows = rawData.length
+  const showProgress = totalRows > 20000
+
+  for (let idx = 0; idx < totalRows; idx++) {
+    const row = rawData[idx]
+    if (showProgress && idx % 25000 === 0) {
+      const pct = Math.floor((idx / totalRows) * 100)
+      process.stdout.write(`\rExtracting numbers... ${pct}% (${idx}/${totalRows} rows)   `)
+    }
+    if (!row || row.length === 0) continue
+
     const ics = [], phones = [], ambiguous = []
-    row.forEach(cell => {
-      if (!cell) return
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c]
+      if (!cell) continue
       const cellStr = String(cell)
+      if (!/\d/.test(cellStr)) continue
+
       const matches = cellStr.match(/[\d\s\-+.()]+/g) || []
-      matches.forEach(part => {
-        const result = classifyNumber(part)
-        if (!result) return
+      for (let m = 0; m < matches.length; m++) {
+        const result = classifyNumber(matches[m])
+        if (!result) continue
         if (result.type === 'ic')        ics.push(result.value)
         else if (result.type === 'phone')     phones.push(result.value)
         else if (result.type === 'ambiguous') ambiguous.push(result)
-      })
-    })
+      }
+    }
 
     let icStr = null, phoneStr = null
     if (ics.length > 0 && phones.length > 0) {
@@ -105,11 +131,12 @@ const runAgeFilteredExtraction = (rawData, minA, maxA) => {
       icStr = ambiguous[0].icValue; phoneStr = ambiguous[1].phoneValue
     }
 
-    if (!icStr || !phoneStr) return
+    if (!icStr || !phoneStr) continue
     const age = extractAge(icStr)
-    if (age < minA || age > maxA) return
+    if (age < minA || age > maxA) continue
     extracted.push(phoneStr)
-  })
+  }
+  if (showProgress) console.log(`\rExtracting numbers... 100% (${totalRows}/${totalRows} rows)   `)
   return extracted
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -187,7 +214,14 @@ async function main() {
     let rawData = [];
     try {
       const fileBuffer = fs.readFileSync(filePath);
-      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      const workbook = XLSX.read(fileBuffer, {
+        type: 'buffer',
+        dense: true,
+        cellFormula: false,
+        cellHTML: false,
+        cellStyles: false,
+        cellText: false
+      });
       const sheetName = workbook.SheetNames[0];
       rawData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
     } catch (e) {
@@ -201,10 +235,12 @@ async function main() {
     } else {
       extracted = runAgeFilteredExtraction(rawData, minAge, maxAge);
     }
+    rawData = null; // Free up memory immediately for giant files
 
     const uniqueNumbers = [...new Set(extracted)];
     if (uniqueNumbers.length === 0) {
       console.log(`0 valid numbers found.`);
+      try { fs.unlinkSync(filePath); } catch {}
       continue;
     }
 
@@ -249,6 +285,7 @@ async function main() {
 
     if (trulyFreshNumbers.length === 0) {
       console.log(`0 inserted (${duplicates} skipped duplicates).`);
+      try { fs.unlinkSync(filePath); } catch {}
       continue;
     }
 
@@ -287,6 +324,11 @@ async function main() {
     } else {
       console.log(`✅ ${trulyFreshNumbers.length} inserted! (${duplicates} duplicates skipped)`);
       totalUploaded += trulyFreshNumbers.length;
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.log(`⚠️ Could not delete file ${file}: ${e.message}`);
+      }
     }
   }
 
