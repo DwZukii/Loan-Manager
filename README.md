@@ -103,37 +103,73 @@ flowchart TD
 
 ---
 
-## 📁 Project Structure
+## 📁 Detailed Project Structure
 
 ```
 TeleManager/
-├── frontend/                      # Main React 19 + Vite Frontend Workspace
-│   ├── backlog/                   # Raw lead backlog & batch processing data
-│   ├── public/                    # Static assets & icons
-│   ├── scripts/                   # Version stamping & backlog utility scripts
+├── frontend/                                # Main React 19 + Vite Frontend Workspace
+│   ├── backlog/                             # Raw lead backlog & batch processing spreadsheets
+│   ├── public/                              # Static assets & favicon icons
+│   ├── scripts/                             # Version stamping & backlog utility scripts
 │   ├── src/
-│   │   ├── components/            # Modular UI dashboards & component suites
-│   │   │   ├── admin/             # Super Admin sub-components (Clean & Add, Assign Staff, Maintenance, etc.)
-│   │   │   ├── manager/           # Manager sub-components (Distribute Team, Matrix, Directory, Profiles)
-│   │   │   ├── staff/             # Staff sub-components (My Leads, Lead Detail, Notifications)
-│   │   │   ├── pipeline/          # Customer pipeline, document vault & details modals
-│   │   │   ├── AdminDashboard.jsx # Super Admin shell (~350 lines)
-│   │   │   ├── GMDashboard.jsx    # General Manager analytics dashboard
-│   │   │   ├── ManagerDashboard.jsx # Manager lead allocation shell (~380 lines)
-│   │   │   ├── StaffDashboard.jsx   # Telemarketing Agent workspace shell (~240 lines)
-│   │   │   ├── Login.jsx          # Secure multi-role authentication
-│   │   │   ├── NavSlider.jsx      # Animated tab selector slider
-│   │   │   ├── UserDropdown.jsx   # Profile dropdown & password reset
-│   │   │   └── LazySpinner.jsx    # Suspense fallback spinner
-│   │   ├── hooks/                 # Custom React Query data hooks (useAdminData, useManagerData, useStaffData)
-│   │   ├── utils.js               # Phone normalization & IC parser heuristics
-│   │   ├── supabase.js            # Supabase JS client configuration
-│   │   └── App.jsx                # Application root & role router
-│   ├── package.json               # Dependencies & build scripts
-│   └── vite.config.js             # Vite build configuration
-├── scripts/                       # Root level automation scripts
-├── package.json                   # Root workspace manifest
-└── README.md                      # Project documentation
+│   │   ├── components/                      # UI Dashboards & Component Suites
+│   │   │   ├── admin/                       # 👑 Super Admin Component Suite
+│   │   │   │   ├── AdminActivityHub.jsx     # Drop alerts, manager review & clear actions
+│   │   │   │   ├── AdminAgentProfile.jsx    # Detailed agent performance metrics & lead table
+│   │   │   │   ├── AdminAssignStaff.jsx     # Pool distribution to agents & clear set
+│   │   │   │   ├── AdminCleanAdd.jsx        # Excel parser, IC age filter & database check
+│   │   │   │   ├── AdminDirectoryTab.jsx    # User provisioning, GM & Manager assignment
+│   │   │   │   ├── AdminFeedbackTab.jsx     # System bug & feedback management panel
+│   │   │   │   ├── AdminMaintenanceCards.jsx# Backlog & duplicate lead purge utilities
+│   │   │   │   ├── AdminManagerTransfer.jsx # Direct lead transfer between manager pools
+│   │   │   │   └── extractionUtils.js       # Pure phone/IC disambiguation & age parser
+│   │   │   ├── manager/                     # 📊 Manager Component Suite
+│   │   │   │   ├── ManagerActivityHub.jsx   # Team notification cards & drop alerts
+│   │   │   │   ├── ManagerAgentProfile.jsx  # Staff member performance & lead list view
+│   │   │   │   ├── ManagerCleanAdd.jsx      # Manager lead upload & age filtering card
+│   │   │   │   ├── ManagerDirectoryTab.jsx  # Staff account provisioning & contact cards
+│   │   │   │   ├── ManagerDistributeTeam.jsx# Team pool distribution & set clear card
+│   │   │   │   └── ManagerTeamMatrixTab.jsx # Team performance matrix & Recharts analytics
+│   │   │   ├── staff/                       # 🎧 Telemarketing Staff Component Suite
+│   │   │   │   ├── StaffLeadDetailView.jsx  # Call dialer, WhatsApp/SMS script & file upload
+│   │   │   │   ├── StaffLeadsTab.jsx        # Agent lead queue, stats & mobile card list
+│   │   │   │   └── StaffNotificationsTab.jsx# Lead drops, birthday alerts & follow-up reminders
+│   │   │   ├── pipeline/                    # 📂 Customer Pipeline Component Suite
+│   │   │   │   ├── AddCustomerForm.jsx      # Customer onboarding form & validations
+│   │   │   │   ├── AgentDistributionList.jsx# Agent distribution breakdown
+│   │   │   │   ├── AllCasesTable.jsx        # All customer cases (Mobile card & Desktop table)
+│   │   │   │   ├── AssignToAgentPanel.jsx   # Reassign customer panel
+│   │   │   │   ├── CustomerDetailsModal.jsx # Customer record, notes & file vault modal
+│   │   │   │   ├── CustomerList.jsx         # Pipeline customer card view
+│   │   │   │   ├── CustomerPipelineAdminPage.jsx   # Admin pipeline shell
+│   │   │   │   ├── CustomerPipelineManagerPage.jsx # Manager pipeline shell
+│   │   │   │   ├── CustomerPipelinePage.jsx # Staff pipeline shell
+│   │   │   │   ├── OverviewStats.jsx        # Pipeline stats header cards
+│   │   │   │   └── StuckCasesTable.jsx      # Inactive case alert table
+│   │   │   ├── AdminDashboard.jsx           # Super Admin master dashboard shell (~350 lines)
+│   │   │   ├── GMDashboard.jsx              # General Manager analytics dashboard shell
+│   │   │   ├── ManagerDashboard.jsx         # Manager lead allocation dashboard shell (~380 lines)
+│   │   │   ├── StaffDashboard.jsx           # Agent workspace dashboard shell (~240 lines)
+│   │   │   ├── Login.jsx                    # Multi-role authentication page
+│   │   │   ├── NavSlider.jsx                # Animated navigation slider bar
+│   │   │   ├── UserDropdown.jsx             # User profile menu & password reset
+│   │   │   ├── ConfirmModal.jsx             # Custom modal dialog confirmation
+│   │   │   └── LazySpinner.jsx              # Suspense fallback loading spinner
+│   │   ├── hooks/                           # Custom React Query data fetching hooks
+│   │   │   ├── useAdminData.js              # Query hook for Admin data & CDC channels
+│   │   │   ├── useConfirm.js                # Custom confirm dialog hook
+│   │   │   ├── useGMData.js                 # Query hook for General Manager data
+│   │   │   ├── useManagerData.js            # Query hook for Manager team data
+│   │   │   ├── usePipelineData.js           # Query hook for Pipeline customer data
+│   │   │   └── useStaffData.js              # Query hook for Staff agent data
+│   │   ├── utils.js                         # Malaysian phone & date formatting utilities
+│   │   ├── supabase.js                      # Supabase JS SDK client initialization
+│   │   └── App.jsx                          # App entry point & role-based routing
+│   ├── package.json                         # Dependencies & build scripts
+│   └── vite.config.js                       # Vite 6 build configuration
+├── scripts/                                 # Root utility & maintenance scripts
+├── package.json                             # Root workspace manifest
+└── README.md                                # Project documentation
 ```
 
 ---
