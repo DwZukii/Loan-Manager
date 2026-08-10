@@ -192,7 +192,11 @@ async function main() {
     process.exit(0);
   }
 
-  const files = fs.readdirSync(backlogDir).filter(f => f.endsWith('.xlsx') || f.endsWith('.csv') || f.endsWith('.xls'));
+  const validExtensions = ['.xlsx', '.xls', '.csv', '.ods'];
+  const files = fs.readdirSync(backlogDir).filter(f => {
+    const ext = path.extname(f).toLowerCase();
+    return validExtensions.includes(ext);
+  });
   
   if (files.length === 0) {
     console.log(`\n⚠️ No Excel files found in ${backlogDir}`);
@@ -240,7 +244,7 @@ async function main() {
     const uniqueNumbers = [...new Set(extracted)];
     if (uniqueNumbers.length === 0) {
       console.log(`0 valid numbers found.`);
-      try { fs.unlinkSync(filePath); } catch {}
+      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
       continue;
     }
 
@@ -285,7 +289,7 @@ async function main() {
 
     if (trulyFreshNumbers.length === 0) {
       console.log(`0 inserted (${duplicates} skipped duplicates).`);
-      try { fs.unlinkSync(filePath); } catch {}
+      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
       continue;
     }
 

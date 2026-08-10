@@ -191,11 +191,11 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
   }, [filtered, validPage])
 
   return (
-    <div className="bg-white border border-gray-100 rounded-md shadow-md p-6 sm:p-8">
+    <div className="bg-white border border-gray-100 rounded-lg shadow-md p-4 sm:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <h2 className="text-xl font-bold text-indigo-900 flex items-center gap-3">
-          <span className="bg-indigo-100 text-indigo-700 rounded-sm w-10 h-10 flex items-center justify-center shadow-sm flex-shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="text-lg sm:text-xl font-bold text-indigo-900 flex items-center gap-2.5">
+          <span className="bg-indigo-100 text-indigo-700 rounded-md w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center shadow-sm flex-shrink-0">
             <ClipboardList className="w-5 h-5" />
           </span>
           All Cases
@@ -204,7 +204,7 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
         {onNewSubmissionClick && (
           <button
             onClick={onNewSubmissionClick}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-sm transition shadow-sm flex-shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-xs sm:text-sm transition shadow-sm flex-shrink-0"
           >
             <Plus className="w-4 h-4" /> New Submission
           </button>
@@ -212,13 +212,13 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
       </div>
 
       {/* Filters row */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-5">
         <input
           type="text"
           placeholder="Search by name, IC, or phone..."
           value={agentFilter}
           onChange={e => { setAgentFilter(e.target.value); setCurrentPage(1) }}
-          className="flex-1 p-3 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          className="flex-1 p-2.5 sm:p-3 border border-gray-200 rounded-md bg-gray-50 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
         />
 
         {/* Custom Searchable Agent / Manager Dropdown */}
@@ -233,7 +233,7 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-            className="appearance-none w-full sm:w-44 p-3 pr-9 border border-gray-200 rounded-md bg-gray-50 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
+            className="appearance-none w-full sm:w-44 p-2.5 sm:p-3 pr-9 border border-gray-200 rounded-md bg-gray-50 text-xs sm:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition cursor-pointer"
           >
             {STATUSES.map(s => (
               <option key={s} value={s}>{s === 'All' ? 'All Statuses' : STATUS_META[s].label}</option>
@@ -243,47 +243,35 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table & Mobile Cards */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-200 rounded-md">
           <p className="text-gray-400 font-medium text-sm">No cases match your filters.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-gray-100">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer</th>
-                <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Agent</th>
-                <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {paginated.map(c => (
-                <tr
-                  key={c.id}
-                  onClick={() => setSelectedCustomerId(c.id)}
-                  className="hover:bg-indigo-50/40 transition-colors cursor-pointer group"
-                >
-                  <td className="px-4 py-3.5">
-                    <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{c.fullName}</p>
-                    <p className="text-xs text-gray-400 font-mono mt-0.5">{c.icNumber}{c.phoneNumber ? ` • ${c.phoneNumber}` : ''}</p>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">
-                        {(c.agentEmail || '?').charAt(0)}
-                      </span>
-                      <span className="text-gray-700 font-medium truncate max-w-[160px]">{c.agentEmail || '—'}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+        <div className="space-y-4">
+          {/* 📱 Mobile Card View (< sm) */}
+          <div className="sm:hidden space-y-3">
+            {paginated.map(c => (
+              <div
+                key={c.id}
+                onClick={() => setSelectedCustomerId(c.id)}
+                className="bg-white border border-gray-200 hover:border-indigo-300 rounded-lg p-3.5 shadow-2xs hover:shadow-sm transition-all duration-150 cursor-pointer space-y-2.5 active:scale-[0.99]"
+              >
+                {/* Top Row: Name & Status */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-sm text-gray-900 hover:text-indigo-700 transition-colors truncate">
+                      {c.fullName}
+                    </h3>
+                  </div>
+                  <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
                     {onStatusChange ? (
                       <div className={`relative inline-flex items-center border rounded-full ${STATUS_META[c.status]?.bg || 'bg-emerald-100'} ${STATUS_META[c.status]?.border || 'border-emerald-200'}`}>
                         <select
                           value={c.status || 'New'}
                           onChange={e => onStatusChange(c.id, e.target.value)}
-                          className={`appearance-none bg-transparent text-xs font-black py-1 pl-3 pr-6 focus:outline-none cursor-pointer ${STATUS_META[c.status]?.text || 'text-emerald-700'}`}
+                          className={`appearance-none bg-transparent text-[11px] font-black py-1 pl-2.5 pr-5 focus:outline-none cursor-pointer ${STATUS_META[c.status]?.text || 'text-emerald-700'}`}
                         >
                           <option value="New">New</option>
                           <option value="Process">Process</option>
@@ -292,20 +280,94 @@ export default function AllCasesTable({ customers, onStatusChange, onDelete, age
                           <option value="Disbursed">Disbursed</option>
                           <option value="Rejected">Rejected</option>
                         </select>
-                        <ChevronDown className={`absolute right-2 w-3 h-3 pointer-events-none ${STATUS_META[c.status]?.text || 'text-emerald-700'}`} />
+                        <ChevronDown className={`absolute right-1.5 w-3 h-3 pointer-events-none ${STATUS_META[c.status]?.text || 'text-emerald-700'}`} />
                       </div>
                     ) : (
                       <StatusBadge status={c.status} />
                     )}
-                  </td>
+                  </div>
+                </div>
+
+                {/* Middle Row: IC & Phone */}
+                <div className="text-xs text-gray-500 font-mono flex flex-wrap items-center gap-1.5 bg-gray-50 p-2 rounded border border-gray-100">
+                  {c.icNumber && <span className="font-bold text-gray-700">{c.icNumber}</span>}
+                  {c.icNumber && c.phoneNumber && <span className="text-gray-300">•</span>}
+                  {c.phoneNumber && <span className="text-gray-600">{c.phoneNumber}</span>}
+                </div>
+
+                {/* Bottom Row: Agent email */}
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-100/80">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Agent</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white font-black text-[10px] uppercase flex-shrink-0">
+                      {(c.agentEmail || '?').charAt(0)}
+                    </span>
+                    <span className="text-gray-700 font-bold text-[11px] truncate max-w-[170px]">{c.agentEmail || '— Unassigned —'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 🖥️ Desktop Table View (>= sm) */}
+          <div className="hidden sm:block overflow-x-auto rounded-md border border-gray-100">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Customer</th>
+                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Agent</th>
+                  <th className="px-4 py-3 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {paginated.map(c => (
+                  <tr
+                    key={c.id}
+                    onClick={() => setSelectedCustomerId(c.id)}
+                    className="hover:bg-indigo-50/40 transition-colors cursor-pointer group"
+                  >
+                    <td className="px-4 py-3.5">
+                      <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{c.fullName}</p>
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">{c.icNumber}{c.phoneNumber ? ` • ${c.phoneNumber}` : ''}</p>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white font-black text-xs uppercase flex-shrink-0">
+                          {(c.agentEmail || '?').charAt(0)}
+                        </span>
+                        <span className="text-gray-700 font-medium truncate max-w-[160px]">{c.agentEmail || '—'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                      {onStatusChange ? (
+                        <div className={`relative inline-flex items-center border rounded-full ${STATUS_META[c.status]?.bg || 'bg-emerald-100'} ${STATUS_META[c.status]?.border || 'border-emerald-200'}`}>
+                          <select
+                            value={c.status || 'New'}
+                            onChange={e => onStatusChange(c.id, e.target.value)}
+                            className={`appearance-none bg-transparent text-xs font-black py-1 pl-3 pr-6 focus:outline-none cursor-pointer ${STATUS_META[c.status]?.text || 'text-emerald-700'}`}
+                          >
+                            <option value="New">New</option>
+                            <option value="Process">Process</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Disbursed">Disbursed</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+                          <ChevronDown className={`absolute right-2 w-3 h-3 pointer-events-none ${STATUS_META[c.status]?.text || 'text-emerald-700'}`} />
+                        </div>
+                      ) : (
+                        <StatusBadge status={c.status} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/50">
+            <div className="px-4 py-3 border border-gray-100 rounded-md flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/50">
               <p className="text-xs text-gray-500 font-medium">
                 Showing <span className="font-bold text-gray-900">{(validPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-gray-900">{Math.min(validPage * ITEMS_PER_PAGE, filtered.length)}</span> of <span className="font-bold text-gray-900">{filtered.length}</span> customers
               </p>
