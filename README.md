@@ -185,7 +185,7 @@ TeleManager/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/DwZukii/Loan-Manager.git
+   git clone https://github.com/DwZukii/TeleManager.git
    cd TeleManager/frontend
    ```
 
