@@ -28,25 +28,25 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
   }, [filtered, validPage])
 
   return (
-    <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><Users className="w-5 h-5" /></span>
           <div>
             <h3 className="text-base sm:text-lg font-extrabold text-gray-900">Global Staff Data Matrix</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
-              {filtered.length} of {agentStats.length} agents tracked across all teams
+              Showing {filtered.length} of {agentStats.length} agents tracked across all teams
             </p>
           </div>
         </div>
-        <div className="relative w-full sm:w-56 flex-shrink-0">
+        <div className="relative w-full sm:w-64 flex-shrink-0">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search staff..."
             value={search}
             onChange={handleSearchChange}
-            className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
+            className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white font-medium"
           />
           {search && (
             <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -55,12 +55,12 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
       </div>
 
       {agentStats.length === 0 ? (
-        <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No leads assigned yet.</p></div>
+        <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3 text-sm">No leads assigned yet.</p></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-3xl mb-3">🔍</div>
-          <p className="font-bold text-gray-500">No staff match <span className="text-indigo-600">"{search}"</span></p>
-          <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
+          <div className="text-3xl mb-2">🔍</div>
+          <p className="font-bold text-gray-500 text-sm">No staff match <span className="text-indigo-600">"{search}"</span></p>
+          <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
         </div>
       ) : (
         <>
@@ -73,7 +73,7 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-sm uppercase flex-shrink-0">{agent.email.charAt(0)}</div>
                     <button onClick={() => onLoadProfile(agent)} className="text-xs font-bold text-gray-800 hover:text-indigo-600 transition-colors truncate text-left">{agent.email}</button>
                   </div>
-                  <button onClick={() => onRevoke(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border border-gray-200 text-gray-600 font-bold px-2.5 py-1 rounded-sm text-[10px] hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all flex-shrink-0">Revoke</button>
+                  <button onClick={() => onRevoke(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border border-gray-200 text-gray-600 font-bold px-2.5 py-1 rounded text-[10px] hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all flex-shrink-0">Revoke</button>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                   <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-black">Total: {agent.total}</span>
@@ -110,12 +110,12 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
                       </div>
                     </td>
                     <td className="px-5 py-3.5"><span className="text-sm font-black text-gray-900">{agent.total}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-sm font-bold text-xs border border-gray-200">{agent.pending}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-blue-100">{agent.called}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-sm font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
-                    <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded-sm font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
+                    <td className="px-5 py-3.5"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded font-bold text-xs border border-gray-200">{agent.pending}</span></td>
+                    <td className="px-5 py-3.5"><span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded font-bold text-xs border border-blue-100">{agent.called}</span></td>
+                    <td className="px-5 py-3.5"><span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded font-bold text-xs border border-purple-100">{agent.whatsapp}</span></td>
+                    <td className="px-5 py-3.5"><span className="bg-yellow-50 text-yellow-700 px-2.5 py-1 rounded font-black text-xs border border-yellow-200">{agent.thinking}</span></td>
                     <td className="px-5 py-3.5 text-right">
-                      <button onClick={() => onRevoke(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded-sm text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
+                      <button onClick={() => onRevoke(agent.email, agent.pending)} disabled={agent.pending === 0} className="bg-white border-2 border-gray-200 text-gray-600 font-bold px-3 py-1.5 rounded text-xs hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-25 transition-all">Revoke</button>
                     </td>
                   </tr>
                 ))}
@@ -123,7 +123,7 @@ const StaffTable = memo(function StaffTable({ agentStats, onRevoke, onLoadProfil
             </table>
           </div>
 
-          {/* 10-Item Pagination Bar */}
+          {/* Pagination Bar */}
           {totalPages > 1 && (
             <div className="bg-gray-50 border-t border-gray-100 p-3 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs text-gray-500 font-medium text-center sm:text-left">
@@ -182,25 +182,25 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
   }, [filtered, validPage])
 
   return (
-    <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="w-8 h-8 bg-indigo-100 rounded-sm flex items-center justify-center text-indigo-500 flex-shrink-0"><User className="w-5 h-5" /></span>
           <div>
             <h3 className="text-base sm:text-lg font-extrabold text-gray-900">Manager Pool Overview</h3>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
-              {filtered.length} of {managerStats.length} managers
+              Showing {filtered.length} of {managerStats.length} managers
             </p>
           </div>
         </div>
-        <div className="relative w-full sm:w-56 flex-shrink-0">
+        <div className="relative w-full sm:w-64 flex-shrink-0">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search managers..."
             value={search}
             onChange={handleSearchChange}
-            className="w-full pl-9 pr-8 py-2 border-2 border-gray-200 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all bg-white font-medium"
+            className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-white font-medium"
           />
           {search && (
             <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
@@ -209,12 +209,12 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
       </div>
 
       {managerStats.length === 0 ? (
-        <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3">No managers found.</p></div>
+        <div className="text-center py-16"><span className="text-4xl">📭</span><p className="font-bold text-gray-500 mt-3 text-sm">No managers found.</p></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-3xl mb-3">🔍</div>
-          <p className="font-bold text-gray-500">No managers match <span className="text-indigo-600">"{search}"</span></p>
-          <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="mt-3 text-sm text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
+          <div className="text-3xl mb-2">🔍</div>
+          <p className="font-bold text-gray-500 text-sm">No managers match <span className="text-indigo-600">"{search}"</span></p>
+          <button onClick={() => { setSearch(''); setCurrentPage(1) }} className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-bold">Clear search</button>
         </div>
       ) : (
         <>
@@ -263,7 +263,7 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
             </table>
           </div>
 
-          {/* 10-Item Pagination Bar */}
+          {/* Pagination Bar */}
           {totalPages > 1 && (
             <div className="bg-gray-50 border-t border-gray-100 p-3 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs text-gray-500 font-medium text-center sm:text-left">
@@ -302,6 +302,9 @@ const ManagerTable = memo(function ManagerTable({ managerStats }) {
 
 const GlobalMatrixTab = memo(function GlobalMatrixTab({ agentStats, managerStats, onRevoke, onLoadProfile }) {
   const [showCharts, setShowCharts] = useState(false)
+
+  // Sub-tab navigation state: 'analytics' | 'staff' | 'managers'
+  const [matrixSubTab, setMatrixSubTab] = useState('analytics')
 
   useEffect(() => {
     const timer = setTimeout(() => setShowCharts(true), 30)
@@ -344,10 +347,10 @@ const GlobalMatrixTab = memo(function GlobalMatrixTab({ agentStats, managerStats
   }), { leads: 0, pending: 0, called: 0, whatsapp: 0, sms: 0 }), [agentStats]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* Header */}
-      <div style={{background: '#1e1b4b'}} className="rounded p-4 sm:p-8 shadow-2xl overflow-hidden relative">
+      {/* Header Stat Summary Cards */}
+      <div style={{background: '#1e1b4b'}} className="rounded-lg p-4 sm:p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 80% 50%, #818cf8 0%, transparent 60%)'}} />
         <div className="relative z-10">
           <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-1 flex items-center gap-3">
@@ -372,65 +375,106 @@ const GlobalMatrixTab = memo(function GlobalMatrixTab({ agentStats, managerStats
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
-              <p className="text-xs text-gray-400">Top 15 Most Active Agents · Called, WhatsApp & SMS</p>
-            </div>
-          </div>
-          <div className="p-6 h-72">
-            {!showCharts || agentStats.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">Loading chart analytics...</p></div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topActiveAgents} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
-                  <XAxis dataKey="email" tickFormatter={(v) => v.split('@')[0]} stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip cursor={{fill: '#f5f5ff'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}} />
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
-                  <Bar dataKey="called"   name="Called"    fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="whatsapp" name="WhatsApp"  fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
-                  <Bar dataKey="thinking" name="SMS"       fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+      {/* ── Sub-Tab Navigation Bar ── */}
+      <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-1.5">
+        <button
+          onClick={() => setMatrixSubTab('analytics')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-xs sm:text-sm transition-all ${matrixSubTab === 'analytics' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Charts & Analytics</span>
+        </button>
 
-        <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
-            <span className="w-8 h-8 bg-violet-100 rounded-sm flex items-center justify-center text-violet-500"><PieChartIcon className="w-5 h-5" /></span>
-            <div>
-              <h3 className="text-sm font-extrabold text-gray-900">Pipeline Health</h3>
-              <p className="text-xs text-gray-400">Global lead status breakdown</p>
-            </div>
-          </div>
-          <div className="p-6 h-72 flex items-center justify-center">
-            {!showCharts || globalPipeline.length === 0 ? (
-              <div className="flex flex-col items-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">Loading pipeline status...</p></div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={globalPipeline} cx="50%" cy="50%" innerRadius={65} outerRadius={88} paddingAngle={3} dataKey="value" stroke="none">
-                    {globalPipeline.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip wrapperStyle={{outline: 'none'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}}/>
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+        <button
+          onClick={() => setMatrixSubTab('staff')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-xs sm:text-sm transition-all ${matrixSubTab === 'staff' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Global Staff Matrix</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${matrixSubTab === 'staff' ? 'bg-indigo-700 text-indigo-100' : 'bg-gray-200 text-gray-700'}`}>{agentStats.length}</span>
+        </button>
+
+        <button
+          onClick={() => setMatrixSubTab('managers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-xs sm:text-sm transition-all ${matrixSubTab === 'managers' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <User className="w-4 h-4" />
+          <span>Manager Pools</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${matrixSubTab === 'managers' ? 'bg-indigo-700 text-indigo-100' : 'bg-gray-200 text-gray-700'}`}>{managerStats.length}</span>
+        </button>
       </div>
 
-      {/* Tables with local search state — no parent re-render on keystrokes */}
-      <StaffTable   agentStats={agentStats}     onRevoke={onRevoke}       onLoadProfile={onLoadProfile} />
-      <ManagerTable managerStats={managerStats} />
+      {/* ── SUB-TAB: Charts & Analytics ── */}
+      {matrixSubTab === 'analytics' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+              <span className="w-8 h-8 bg-blue-100 rounded-sm flex items-center justify-center text-indigo-500"><BarChart3 className="w-5 h-5" /></span>
+              <div>
+                <h3 className="text-sm font-extrabold text-gray-900">Performance vs Volume Tracker</h3>
+                <p className="text-xs text-gray-400">Top 15 Most Active Agents · Called, WhatsApp & SMS</p>
+              </div>
+            </div>
+            <div className="p-6 h-72">
+              {!showCharts || agentStats.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">Loading chart analytics...</p></div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topActiveAgents} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
+                    <XAxis dataKey="email" tickFormatter={(v) => v.split('@')[0]} stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: '#f5f5ff'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '12px'}}/>
+                    <Bar dataKey="called"   name="Called"    fill="#3b82f6" radius={[4,4,0,0]} maxBarSize={36} />
+                    <Bar dataKey="whatsapp" name="WhatsApp"  fill="#8b5cf6" radius={[4,4,0,0]} maxBarSize={36} />
+                    <Bar dataKey="thinking" name="SMS"       fill="#eab308" radius={[4,4,0,0]} maxBarSize={36} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/60 flex items-center gap-3">
+              <span className="w-8 h-8 bg-violet-100 rounded-sm flex items-center justify-center text-violet-500"><PieChartIcon className="w-5 h-5" /></span>
+              <div>
+                <h3 className="text-sm font-extrabold text-gray-900">Pipeline Health</h3>
+                <p className="text-xs text-gray-400">Global lead status breakdown</p>
+              </div>
+            </div>
+            <div className="p-6 h-72 flex items-center justify-center">
+              {!showCharts || globalPipeline.length === 0 ? (
+                <div className="flex flex-col items-center text-gray-400 gap-2"><span className="text-3xl">📭</span><p className="font-bold text-sm">Loading pipeline status...</p></div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={globalPipeline} cx="50%" cy="50%" innerRadius={65} outerRadius={88} paddingAngle={3} dataKey="value" stroke="none">
+                      {globalPipeline.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip wrapperStyle={{outline: 'none'}} contentStyle={{borderRadius: '0.75rem', border: '1px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'}}/>
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SUB-TAB: Staff Table ── */}
+      {matrixSubTab === 'staff' && (
+        <div className="animate-in fade-in duration-300">
+          <StaffTable agentStats={agentStats} onRevoke={onRevoke} onLoadProfile={onLoadProfile} />
+        </div>
+      )}
+
+      {/* ── SUB-TAB: Manager Table ── */}
+      {matrixSubTab === 'managers' && (
+        <div className="animate-in fade-in duration-300">
+          <ManagerTable managerStats={managerStats} />
+        </div>
+      )}
 
     </div>
   )

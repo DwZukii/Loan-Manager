@@ -271,7 +271,7 @@ export default function CustomerDetailsModal({ customer, onClose, onDelete, agen
     if (!form.icNumber.trim()) {
       return toast.error('IC Number is required')
     }
-    if (!form.phoneNumber.trim()) {
+    if (!form.phoneNumber.trim() && customer.phoneNumber) {
       return toast.error('Phone Number is required')
     }
 

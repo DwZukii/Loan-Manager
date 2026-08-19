@@ -98,6 +98,5 @@ export function usePipelineData(userEmail) {
     },
     enabled: !!userEmail,
     staleTime: 5_000,
-    refetchInterval: 10_000,
   })
 }

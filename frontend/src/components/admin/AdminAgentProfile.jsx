@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Trash2, Users, Mail, Phone } from 'lucide-react'
 import { formatPhone } from '../../utils'
 import { supabase } from '../../supabase'
@@ -9,22 +9,34 @@ export default function AdminAgentProfile({ agent, userEmail, userRole, confirm,
   const p = agent
 
   const [agentProfileLeads, setAgentProfileLeads] = useState([])
+  const [profileTotalCount, setProfileTotalCount] = useState(0)
   const [isProfileLoading, setIsProfileLoading] = useState(true)
   const [profileFilter, setProfileFilter] = useState('All')
   const [profilePage, setProfilePage] = useState(1)
   const [deletingUser, setDeletingUser] = useState(null)
   const profileLeadsPerPage = 10
 
-  // Load leads on mount
-  useEffect(() => {
-    const load = async () => {
-      setIsProfileLoading(true)
-      const { data } = await supabase.from('leads').select('*').eq('assigned_to', p.email).order('created_at', { ascending: false })
-      if (data) setAgentProfileLeads(data)
-      setIsProfileLoading(false)
-    }
-    load()
-  }, [p.email])
+  // Load only the current page of leads, filtered server-side
+  const loadProfileLeads = useCallback(async () => {
+    setIsProfileLoading(true)
+    const from = (profilePage - 1) * profileLeadsPerPage
+    const to = from + profileLeadsPerPage - 1
+
+    let query = supabase
+      .from('leads')
+      .select('id, phone_number, status, agent_notes, document_url', { count: 'exact' })
+      .eq('assigned_to', p.email)
+
+    if (profileFilter === "SMS'd") query = query.in('status', ['Thinking', 'SMS Sent'])
+    else if (profileFilter !== 'All') query = query.eq('status', profileFilter)
+
+    const { data, count } = await query.order('created_at', { ascending: false }).range(from, to)
+    if (data) setAgentProfileLeads(data)
+    setProfileTotalCount(count || 0)
+    setIsProfileLoading(false)
+  }, [p.email, profilePage, profileFilter])
+
+  useEffect(() => { loadProfileLeads() }, [loadProfileLeads])
 
   const handleRevokeSingleLead = async (leadId) => {
     if (!(await confirm("Return this single number to the Unassigned Pool?"))) return;
@@ -36,7 +48,7 @@ export default function AdminAgentProfile({ agent, userEmail, userRole, confirm,
     }
 
     const { error } = await supabase.from('leads').update({ assigned_to: 'unassigned', status: 'Pending', agent_notes: '', document_url: null }).eq('id', leadId)
-    if (!error) { setAgentProfileLeads(agentProfileLeads.filter(l => l.id !== leadId)); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
+    if (!error) { await loadProfileLeads(); queryClient.invalidateQueries({ queryKey: ['adminData', userEmail] }) }
   }
 
   const handleDeleteUserLocal = async (targetEmail) => {
@@ -45,13 +57,8 @@ export default function AdminAgentProfile({ agent, userEmail, userRole, confirm,
     setDeletingUser(null)
   }
 
-  const filteredProfileLeads = agentProfileLeads.filter(lead => {
-    if (profileFilter === 'All') return true;
-    if (profileFilter === "SMS'd") return lead.status === 'Thinking' || lead.status === 'SMS Sent';
-    return lead.status === profileFilter;
-  })
-  const currentProfileLeads = filteredProfileLeads.slice((profilePage - 1) * profileLeadsPerPage, profilePage * profileLeadsPerPage)
-  const totalProfilePages = Math.ceil(filteredProfileLeads.length / profileLeadsPerPage)
+  const currentProfileLeads = agentProfileLeads
+  const totalProfilePages = Math.ceil(profileTotalCount / profileLeadsPerPage)
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 relative">
@@ -131,7 +138,7 @@ export default function AdminAgentProfile({ agent, userEmail, userRole, confirm,
               <option value="Invalid Number">Invalid Only</option>
             </select>
           </div>
-          {isProfileLoading ? <p className="text-gray-500 text-center py-8">Loading leads...</p> : filteredProfileLeads.length === 0 ? <p className="text-gray-500 text-center py-8">No numbers found for this filter.</p> : (
+          {isProfileLoading ? <p className="text-gray-500 text-center py-8">Loading leads...</p> : currentProfileLeads.length === 0 ? <p className="text-gray-500 text-center py-8">No numbers found for this filter.</p> : (
             <>
               <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="bg-gray-50 border-y border-gray-200"><th className="p-3 font-semibold text-gray-600 text-sm">#</th><th className="p-3 font-semibold text-gray-600 text-sm">Phone Number</th><th className="p-3 font-semibold text-gray-600 text-sm">Status</th><th className="p-3 font-semibold text-gray-600 text-sm w-1/3">Staff Notes</th><th className="p-3 font-semibold text-gray-600 text-sm">Document</th><th className="p-3 font-semibold text-gray-600 text-sm text-right">Admin Action</th></tr></thead><tbody>{currentProfileLeads.map((lead, index) => { return (<tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50"><td className="p-3 text-sm text-gray-400 font-bold">{(profilePage - 1) * profileLeadsPerPage + index + 1}</td><td className="p-3 font-bold text-gray-800">{formatPhone(lead.phone_number)}</td><td className="p-3"><span className={`text-xs px-2 py-1 rounded font-bold ${lead.status === "Accepted" ? "bg-green-100 text-green-700" : lead.status === "Rejected" ? "bg-red-100 text-red-700" : lead.status === "Pending" ? "bg-gray-200 text-gray-700" : "bg-blue-100 text-blue-700"}`}>{lead.status}</span></td><td className="p-3 text-sm text-gray-600 italic">{lead.agent_notes ? `"${lead.agent_notes}"` : <span className="text-gray-400">No notes</span>}</td><td className="p-3">{lead.document_url ? <a href={lead.document_url} target="_blank" rel="noreferrer" className="text-blue-600 text-sm font-bold hover:underline">View</a> : <span className="text-gray-400 text-sm">-</span>}</td><td className="p-3 text-right"><button onClick={() => handleRevokeSingleLead(lead.id)} className="bg-white border border-red-200 text-red-600 font-bold px-3 py-1.5 rounded-sm text-xs hover:bg-red-50 transition">Revoke</button></td></tr>)})}</tbody></table></div>
               {totalProfilePages > 1 && (

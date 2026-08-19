@@ -37,7 +37,7 @@ export function useAdminData(userEmail, userRole) {
       const setKeys = ['Set A', 'Set B', 'Set C', 'External / Manual'];
 
       const [profilesRes, feedbackRes, countsRes] = await Promise.all([
-        supabase.from('profiles').select('email, role, manager_email, full_name, contact_number, general_manager_email'),
+        supabase.from('profiles').select('id, email, role, manager_email, full_name, contact_number, general_manager_email'),
         supabase.from('feedback').select('*').order('created_at', { ascending: false }),
         supabase.rpc('get_set_counts', { p_owner: userEmail }) // Replaces looping 4 count queries
       ]);

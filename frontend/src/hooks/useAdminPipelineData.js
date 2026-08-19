@@ -85,6 +85,5 @@ export function useAdminPipelineData() {
       }))
     },
     staleTime: 5_000,
-    refetchInterval: 10_000,
   })
 }

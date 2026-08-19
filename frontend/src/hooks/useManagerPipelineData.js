@@ -111,6 +111,5 @@ export function useManagerPipelineData(userEmail) {
     },
     enabled: !!userEmail,
     staleTime: 5_000,
-    refetchInterval: 10_000,
   })
 }
